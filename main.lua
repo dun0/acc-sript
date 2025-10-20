@@ -783,22 +783,36 @@ coroutine.wrap(function()
             local minutes = math.floor(moonTimeRemaining / 60)
             local seconds = moonTimeRemaining % 60
             MoonTimerLabel.Text = string.format("Time Remaining: %dm %ds", minutes, seconds)
-            
-            if moonTimeRemaining == 0 and moonLooping and not moonRolling then
-                wait(2)
-                if moonLooping then
-                    coroutine.wrap(rollMoons)()
-                end
-            end
         else
             MoonTimerLabel.Text = "Time Remaining: 0s"
+            
+            if moonLooping and not moonRolling then
+                wait(0.5) 
+                
+                local currentTier = getMoonTier(currentMoon)
+                
+                if currentTier < targetMoonTier then
+                    print("Moon expired and new moon is not the target. Starting auto-reroll.")
+                    coroutine.wrap(rollMoons)()
+                else
+                    print("Moon expired and new moon is good enough. Not rerolling.")
+                end
+            end
         end
     end
 end)()
 
 function rollMoons()
     if moonRolling then return end
+
     
+    if getMoonTier(currentMoon) >= targetMoonTier then
+        MoonStatusLabel.Text = "Status: Already have a good moon!"
+        MoonStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        return
+    end
+
+
     moonRolling = true
     rollCount = 0
     RollCountLabel.Text = "Rolls Used: 0"
