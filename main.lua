@@ -851,7 +851,7 @@ function rollMoons()
         end)
         
         local success, newMoonName = pcall(function()
-            return moonRollResult.Event:Wait()
+            return moonRollResult:Wait()
         end)
 
         if not success then
