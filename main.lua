@@ -44,9 +44,6 @@ local rewardEvent = ReplicatedStorage["shared/network@eventDefinitions"].notifyR
 local animationEvent = ReplicatedStorage["shared/network@eventDefinitions"].playBattleAnimation
 local dispatchEvent = ReplicatedStorage["shared/network@eventDefinitions"].dispatch
 local useItemEvent = ReplicatedStorage["shared/network@eventDefinitions"].useItem
-local notificationEvent = ReplicatedStorage["shared/network@eventDefinitions"].sendNotification
-
-local moonRollResult = Instance.new("BindableEvent")
 
 local currentFloor = START_FLOOR
 local isRunning = false
@@ -94,11 +91,10 @@ UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Position = UDim2.new(0, 0, 0, 0)
+Title.Size = UDim2.new(1, -40, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 Title.BorderSizePixel = 0
-Title.Text = "boss retry"
+Title.Text = "ratware hub"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
@@ -767,34 +763,30 @@ end
 dispatchEvent.OnClientEvent:Connect(function(data)
     if data and type(data) == "table" then
         for _, event in ipairs(data) do
-            if event.name == "moonCycleChanged" and event.arguments then
-                currentMoon = event.arguments[1] or "None"
-                CurrentMoonLabel.Text = "Current Moon: " .. getMoonDisplay(currentMoon)
-
-                if event.arguments[2] then
-                    moonTimeRemaining = 180
-                else
+            if event.name == "moonCycleChanged" and event.arguments and event.arguments[1] then
+                local newMoon = event.arguments[1]
+                
+                if newMoon == "none" then
+                    currentMoon = "None"
+                    CurrentMoonLabel.Text = "Current Moon: None"
                     moonTimeRemaining = 0
+                    
+                    if moonLooping and not moonRolling then
+                        wait(2)
+                        MoonStatusLabel.Text = "Status: Moon expired, rerolling..."
+                        MoonStatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+                        coroutine.wrap(rollMoons)()
+                    end
+                else
+                    currentMoon = newMoon
+                    CurrentMoonLabel.Text = "Current Moon: " .. getMoonDisplay(currentMoon)
+                    
+                    if event.arguments[2] then
+                        moonTimeRemaining = 180
+                    end
                 end
             end
         end
-    end
-end)
-
-notificationEvent.OnClientEvent:Connect(function(data)
-    if not moonRolling or not data or not data.message then return end
-
-    local moonNameMatch = string.match(data.message, "You succesfully rolled (.+)!")
-    
-    if moonNameMatch then
-        local internalMoonName = "None"
-        for _, moon in ipairs(moons) do
-            if moon.display == moonNameMatch then
-                internalMoonName = moon.name
-                break
-            end
-        end
-        moonRollResult:Fire(internalMoonName)
     end
 end)
 
@@ -812,17 +804,6 @@ coroutine.wrap(function()
     end
 end)()
 
-coroutine.wrap(function()
-    while true do
-        wait(2) 
-        if moonLooping and not moonRolling then
-            if currentMoon == "None" or currentMoon == nil then
-                coroutine.wrap(rollMoons)()
-            end
-        end
-    end
-end)()
-
 function rollMoons()
     if moonRolling then return end
     
@@ -834,6 +815,7 @@ function rollMoons()
     
     while moonRolling do
         local currentTier = getMoonTier(currentMoon)
+        
         if currentTier >= targetMoonTier then
             if currentTier == targetMoonTier then
                 MoonStatusLabel.Text = "Status: Target moon reached!"
@@ -845,36 +827,19 @@ function rollMoons()
             moonRolling = false
             break
         end
-
+        
         pcall(function()
             useItemEvent:FireServer("moon_cycle_reroll_potion", 1)
         end)
         
-        local success, newMoonName = pcall(function()
-            return moonRollResult:Wait()
-        end)
-
-        if not success then
-            MoonStatusLabel.Text = "Status: Roll timed out! Stopping."
-            MoonStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            moonRolling = false
-            break
-        end
-        
-        currentMoon = newMoonName
-        CurrentMoonLabel.Text = "Current Moon: " .. getMoonDisplay(currentMoon)
         rollCount = rollCount + 1
         RollCountLabel.Text = "Rolls Used: " .. rollCount
         
-        wait(0.2) 
+        wait(0.01)
     end
     
     if not moonRolling then
         MoonStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-        if MoonStatusLabel.Text:find("Rolling") then
-             MoonStatusLabel.Text = "Status: Stopped"
-             MoonStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
     end
 end
 
