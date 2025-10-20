@@ -73,6 +73,7 @@ local moonRolling = false
 local moonLooping = false
 local moonTimeRemaining = 0
 local rollCount = 0
+local localMoonTimer = 0
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LunarTowerFarm"
@@ -764,11 +765,12 @@ dispatchEvent.OnClientEvent:Connect(function(data)
     if data and type(data) == "table" then
         for _, event in ipairs(data) do
             if event.name == "moonCycleChanged" and event.arguments and event.arguments[1] then
-                currentMoon = event.arguments[1]
+                currentMoon = event.arguments[1] or "None"
                 CurrentMoonLabel.Text = "Current Moon: " .. getMoonDisplay(currentMoon)
                 
                 if event.arguments[2] then
                     moonTimeRemaining = 180
+                    localMoonTimer = 180
                 end
             end
         end
@@ -778,24 +780,23 @@ end)
 coroutine.wrap(function()
     while true do
         wait(1)
+
         if moonTimeRemaining > 0 then
             moonTimeRemaining = moonTimeRemaining - 1
-            local minutes = math.floor(moonTimeRemaining / 60)
-            local seconds = moonTimeRemaining % 60
-            MoonTimerLabel.Text = string.format("Time Remaining: %dm %ds", minutes, seconds)
-        else
-            MoonTimerLabel.Text = "Time Remaining: 0s"
-            
-            if moonLooping and not moonRolling then
-                wait(0.5) 
+        end
+        local minutes = math.floor(moonTimeRemaining / 60)
+        local seconds = moonTimeRemaining % 60
+        MoonTimerLabel.Text = string.format("Time Remaining: %dm %ds", minutes, seconds)
+
+        if localMoonTimer > 0 then
+            localMoonTimer = localMoonTimer - 1
+
+            if localMoonTimer == 0 and moonLooping and not moonRolling then
+                MoonStatusLabel.Text = "Status: Moon expired. Auto-rolling..."
+                wait(1)
                 
-                local currentTier = getMoonTier(currentMoon)
-                
-                if currentTier < targetMoonTier then
-                    print("Moon expired and new moon is not the target. Starting auto-reroll.")
+                if moonLooping then
                     coroutine.wrap(rollMoons)()
-                else
-                    print("Moon expired and new moon is good enough. Not rerolling.")
                 end
             end
         end
