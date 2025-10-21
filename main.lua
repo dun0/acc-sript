@@ -7,14 +7,14 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local STALL_CHECK_INTERVAL = 5
-local STALL_TIMEOUT = 5
 local ANTI_AFK_INTERVAL = 30
 
 local START_FLOOR = 3
 local END_FLOOR = 25
 local TOWER_ID = "light_fairy"
 
-local antiAfkEnabled = true
+-- Anti-AFK is now disabled by default
+local antiAfkEnabled = false
 
 local function antiAfk()
     local keys = {Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D}
@@ -24,13 +24,10 @@ local function antiAfk()
         
         if antiAfkEnabled then
             local randomKey = keys[math.random(1, #keys)]
-            
             VirtualUser:CaptureController()
             VirtualUser:Button1Down(Vector2.new())
             game:GetService("VirtualInputManager"):SendKeyEvent(true, randomKey, false, game)
-            
             wait(0.1)
-            
             game:GetService("VirtualInputManager"):SendKeyEvent(false, randomKey, false, game)
             VirtualUser:Button1Up(Vector2.new())
         end
@@ -49,7 +46,6 @@ local currentFloor = START_FLOOR
 local isRunning = false
 local isBattling = false
 local animationTurnCount = 0
-local lastAnimationCount = 0
 local battleAttempts = 0
 
 local moons = {
@@ -74,14 +70,38 @@ local moonLooping = false
 local moonTimeRemaining = 0
 local rollCount = 0
 
+local towers = {
+    "battle_tower",
+    "watery_depths", 
+    "frozen_landscape",
+    "stone_citadel",
+    "inferno_depths",
+    "lunar_eclipse",
+    "light_fairy"
+}
+
+local towerCycleConfig = {}
+local cycleTowersEnabled = false
+local floorOptions = {5, 10, 15, 20, 25}
+
+for i, towerName in ipairs(towers) do
+    towerCycleConfig[towerName] = {
+        enabled = false,
+        floors = {}
+    }
+    for _, floorNum in ipairs(floorOptions) do
+        towerCycleConfig[towerName].floors[floorNum] = false
+    end
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LunarTowerFarm"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -210)
+MainFrame.Size = UDim2.new(0, 320, 0, 480) -- MODIFIED: Increased height
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -240) -- MODIFIED: Adjusted position for new height
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -91,10 +111,10 @@ UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 Title.BorderSizePixel = 0
-Title.Text = "ratware hub"
+Title.Text = "boss retry"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
@@ -220,16 +240,6 @@ DropdownMenuCorner.Parent = DropdownMenu
 local DropdownList = Instance.new("UIListLayout")
 DropdownList.SortOrder = Enum.SortOrder.LayoutOrder
 DropdownList.Parent = DropdownMenu
-
-local towers = {
-    "battle_tower",
-    "watery_depths", 
-    "frozen_landscape",
-    "stone_citadel",
-    "inferno_depths",
-    "lunar_eclipse",
-    "light_fairy"
-}
 
 local dropdownOpen = false
 
@@ -383,8 +393,8 @@ local AntiAfkLabel = Instance.new("TextLabel")
 AntiAfkLabel.Size = UDim2.new(1, -80, 0, 20)
 AntiAfkLabel.Position = UDim2.new(0, 10, 0, 270)
 AntiAfkLabel.BackgroundTransparency = 1
-AntiAfkLabel.Text = "Anti-AFK: Active (30s)"
-AntiAfkLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
+AntiAfkLabel.Text = "Anti-AFK: Disabled"
+AntiAfkLabel.TextColor3 = Color3.fromRGB(200, 100, 100)
 AntiAfkLabel.TextSize = 12
 AntiAfkLabel.Font = Enum.Font.Gotham
 AntiAfkLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -393,8 +403,8 @@ AntiAfkLabel.Parent = TowerFrame
 local AntiAfkToggle = Instance.new("TextButton")
 AntiAfkToggle.Size = UDim2.new(0, 60, 0, 20)
 AntiAfkToggle.Position = UDim2.new(1, -70, 0, 270)
-AntiAfkToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-AntiAfkToggle.Text = "ON"
+AntiAfkToggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+AntiAfkToggle.Text = "OFF"
 AntiAfkToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 AntiAfkToggle.TextSize = 12
 AntiAfkToggle.Font = Enum.Font.GothamBold
@@ -405,8 +415,49 @@ local AntiAfkToggleCorner = Instance.new("UICorner")
 AntiAfkToggleCorner.CornerRadius = UDim.new(0, 4)
 AntiAfkToggleCorner.Parent = AntiAfkToggle
 
+local CycleTowerLabel = Instance.new("TextLabel")
+CycleTowerLabel.Size = UDim2.new(1, -80, 0, 20)
+CycleTowerLabel.Position = UDim2.new(0, 10, 0, 300)
+CycleTowerLabel.BackgroundTransparency = 1
+CycleTowerLabel.Text = "Cycle Towers"
+CycleTowerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+CycleTowerLabel.TextSize = 12
+CycleTowerLabel.Font = Enum.Font.Gotham
+CycleTowerLabel.TextXAlignment = Enum.TextXAlignment.Left
+CycleTowerLabel.Parent = TowerFrame
+
+local CycleTowerToggle = Instance.new("TextButton")
+CycleTowerToggle.Size = UDim2.new(0, 60, 0, 20)
+CycleTowerToggle.Position = UDim2.new(1, -70, 0, 300)
+CycleTowerToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+CycleTowerToggle.Text = "OFF"
+CycleTowerToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+CycleTowerToggle.TextSize = 12
+CycleTowerToggle.Font = Enum.Font.GothamBold
+CycleTowerToggle.BorderSizePixel = 0
+CycleTowerToggle.Parent = TowerFrame
+
+local CycleTowerToggleCorner = Instance.new("UICorner")
+CycleTowerToggleCorner.CornerRadius = UDim.new(0, 4)
+CycleTowerToggleCorner.Parent = CycleTowerToggle
+
+local ConfigCycleButton = Instance.new("TextButton")
+ConfigCycleButton.Size = UDim2.new(1, -20, 0, 25)
+ConfigCycleButton.Position = UDim2.new(0, 10, 0, 330) -- MODIFIED: Repositioned to avoid overlap
+ConfigCycleButton.BackgroundColor3 = Color3.fromRGB(50, 100, 150)
+ConfigCycleButton.Text = "Configure Tower Cycle"
+ConfigCycleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfigCycleButton.TextSize = 12
+ConfigCycleButton.Font = Enum.Font.GothamBold
+ConfigCycleButton.BorderSizePixel = 0
+ConfigCycleButton.Parent = TowerFrame
+
+local ConfigCycleButtonCorner = Instance.new("UICorner")
+ConfigCycleButtonCorner.CornerRadius = UDim.new(0, 6)
+ConfigCycleButtonCorner.Parent = ConfigCycleButton
+
 local StartButton = Instance.new("TextButton")
-StartButton.Size = UDim2.new(0, 130, 0, 35)
+StartButton.Size = UDim2.new(0.5, -15, 0, 35)
 StartButton.Position = UDim2.new(0, 10, 1, -45)
 StartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
 StartButton.Text = "Start"
@@ -421,8 +472,8 @@ StartCorner.CornerRadius = UDim.new(0, 6)
 StartCorner.Parent = StartButton
 
 local StopButton = Instance.new("TextButton")
-StopButton.Size = UDim2.new(0, 130, 0, 35)
-StopButton.Position = UDim2.new(1, -140, 1, -45)
+StopButton.Size = UDim2.new(0.5, -15, 0, 35)
+StopButton.Position = UDim2.new(0.5, 5, 1, -45)
 StopButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 StopButton.Text = "Stop"
 StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -434,6 +485,160 @@ StopButton.Parent = TowerFrame
 local StopCorner = Instance.new("UICorner")
 StopCorner.CornerRadius = UDim.new(0, 6)
 StopCorner.Parent = StopButton
+
+local CycleConfigFrame = Instance.new("Frame")
+CycleConfigFrame.Size = UDim2.new(0, 380, 0, 400)
+CycleConfigFrame.Position = UDim2.new(0.5, -190, 0.5, -200)
+CycleConfigFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+CycleConfigFrame.BorderSizePixel = 0
+CycleConfigFrame.Visible = false
+CycleConfigFrame.ZIndex = 100
+CycleConfigFrame.Parent = ScreenGui
+
+local CycleConfigCorner = Instance.new("UICorner")
+CycleConfigCorner.CornerRadius = UDim.new(0, 10)
+CycleConfigCorner.Parent = CycleConfigFrame
+
+local CycleConfigTitle = Instance.new("TextLabel")
+CycleConfigTitle.Size = UDim2.new(1, 0, 0, 40)
+CycleConfigTitle.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+CycleConfigTitle.BorderSizePixel = 0
+CycleConfigTitle.Text = "Configure Tower Cycle"
+CycleConfigTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+CycleConfigTitle.TextSize = 14
+CycleConfigTitle.Font = Enum.Font.GothamBold
+CycleConfigTitle.ZIndex = 101
+CycleConfigTitle.Parent = CycleConfigFrame
+
+local CycleConfigTitleCorner = Instance.new("UICorner")
+CycleConfigTitleCorner.CornerRadius = UDim.new(0, 10)
+CycleConfigTitleCorner.Parent = CycleConfigTitle
+
+local CloseCycleConfigButton = Instance.new("TextButton")
+CloseCycleConfigButton.Size = UDim2.new(0, 30, 0, 30)
+CloseCycleConfigButton.Position = UDim2.new(1, -35, 0, 5)
+CloseCycleConfigButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+CloseCycleConfigButton.Text = "X"
+CloseCycleConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseCycleConfigButton.TextSize = 16
+CloseCycleConfigButton.Font = Enum.Font.GothamBold
+CloseCycleConfigButton.BorderSizePixel = 0
+CloseCycleConfigButton.ZIndex = 102
+CloseCycleConfigButton.Parent = CycleConfigFrame
+
+local CloseCycleConfigCorner = Instance.new("UICorner")
+CloseCycleConfigCorner.CornerRadius = UDim.new(0, 6)
+CloseCycleConfigCorner.Parent = CloseCycleConfigButton
+
+local CycleScrollFrame = Instance.new("ScrollingFrame")
+CycleScrollFrame.Size = UDim2.new(1, -20, 1, -50)
+CycleScrollFrame.Position = UDim2.new(0, 10, 0, 50)
+CycleScrollFrame.BackgroundTransparency = 1
+CycleScrollFrame.BorderSizePixel = 0
+CycleScrollFrame.ScrollBarThickness = 6
+CycleScrollFrame.ZIndex = 101
+CycleScrollFrame.Parent = CycleConfigFrame
+
+local CycleListLayout = Instance.new("UIListLayout")
+CycleListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+CycleListLayout.Padding = UDim.new(0, 10)
+CycleListLayout.Parent = CycleScrollFrame
+
+for i, towerName in ipairs(towers) do
+    local TowerConfigFrame = Instance.new("Frame")
+    TowerConfigFrame.Size = UDim2.new(1, 0, 0, 90)
+    TowerConfigFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    TowerConfigFrame.BorderSizePixel = 0
+    TowerConfigFrame.ZIndex = 101
+    TowerConfigFrame.Parent = CycleScrollFrame
+    
+    local TowerConfigCorner = Instance.new("UICorner")
+    TowerConfigCorner.CornerRadius = UDim.new(0, 6)
+    TowerConfigCorner.Parent = TowerConfigFrame
+    
+    local TowerNameLabel = Instance.new("TextLabel")
+    TowerNameLabel.Size = UDim2.new(1, -85, 0, 25)
+    TowerNameLabel.Position = UDim2.new(0, 10, 0, 5)
+    TowerNameLabel.BackgroundTransparency = 1
+    TowerNameLabel.Text = towerName:gsub("_", " "):upper()
+    TowerNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TowerNameLabel.TextSize = 14
+    TowerNameLabel.Font = Enum.Font.GothamBold
+    TowerNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TowerNameLabel.ZIndex = 102
+    TowerNameLabel.Parent = TowerConfigFrame
+    
+    local TowerEnableButton = Instance.new("TextButton")
+    TowerEnableButton.Size = UDim2.new(0, 60, 0, 20)
+    TowerEnableButton.Position = UDim2.new(1, -70, 0, 7.5)
+    TowerEnableButton.BackgroundColor3 = Color3.fromRGB(45,45,55)
+    TowerEnableButton.Text = "OFF"
+    TowerEnableButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TowerEnableButton.TextSize = 12
+    TowerEnableButton.Font = Enum.Font.GothamBold
+    TowerEnableButton.BorderSizePixel = 0
+    TowerEnableButton.ZIndex = 102
+    TowerEnableButton.Parent = TowerConfigFrame
+
+    local TowerEnableCorner = Instance.new("UICorner")
+    TowerEnableCorner.CornerRadius = UDim.new(0, 4)
+    TowerEnableCorner.Parent = TowerEnableButton
+    
+    TowerEnableButton.MouseButton1Click:Connect(function()
+        local config = towerCycleConfig[towerName]
+        config.enabled = not config.enabled
+        if config.enabled then
+            TowerEnableButton.Text = "ON"
+            TowerEnableButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        else
+            TowerEnableButton.Text = "OFF"
+            TowerEnableButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        end
+    end)
+    
+    local FloorSelectLabel = Instance.new("TextLabel")
+    FloorSelectLabel.Size = UDim2.new(1, -10, 0, 20)
+    FloorSelectLabel.Position = UDim2.new(0, 10, 0, 35)
+    FloorSelectLabel.BackgroundTransparency = 1
+    FloorSelectLabel.Text = "Select floors to farm:"
+    FloorSelectLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    FloorSelectLabel.TextSize = 12
+    FloorSelectLabel.Font = Enum.Font.Gotham
+    FloorSelectLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FloorSelectLabel.ZIndex = 102
+    FloorSelectLabel.Parent = TowerConfigFrame
+    
+    for j, floor in ipairs(floorOptions) do
+        local FloorButton = Instance.new("TextButton")
+        FloorButton.Size = UDim2.new(0, 50, 0, 25)
+        FloorButton.Position = UDim2.new(0, 10 + (j - 1) * 60, 0, 58)
+        FloorButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        FloorButton.Text = tostring(floor)
+        FloorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        FloorButton.TextSize = 11
+        FloorButton.Font = Enum.Font.GothamBold
+        FloorButton.BorderSizePixel = 0
+        FloorButton.ZIndex = 102
+        FloorButton.Parent = TowerConfigFrame
+        
+        local FloorButtonCorner = Instance.new("UICorner")
+        FloorButtonCorner.CornerRadius = UDim.new(0, 4)
+        FloorButtonCorner.Parent = FloorButton
+        
+        FloorButton.MouseButton1Click:Connect(function()
+            local floorConfig = towerCycleConfig[towerName].floors
+            floorConfig[floor] = not floorConfig[floor]
+            
+            if floorConfig[floor] then
+                FloorButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+            else
+                FloorButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            end
+        end)
+    end
+end
+
+CycleScrollFrame.CanvasSize = UDim2.new(0, 0, 0, #towers * 100)
 
 local CurrentMoonLabel = Instance.new("TextLabel")
 CurrentMoonLabel.Size = UDim2.new(1, -20, 0, 30)
@@ -606,7 +811,7 @@ LoopToggleCorner.CornerRadius = UDim.new(0, 6)
 LoopToggleCorner.Parent = LoopToggle
 
 local MoonStartButton = Instance.new("TextButton")
-MoonStartButton.Size = UDim2.new(0, 130, 0, 35)
+MoonStartButton.Size = UDim2.new(0.5, -15, 0, 35)
 MoonStartButton.Position = UDim2.new(0, 10, 1, -45)
 MoonStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
 MoonStartButton.Text = "Start Rolling"
@@ -621,8 +826,8 @@ MoonStartCorner.CornerRadius = UDim.new(0, 6)
 MoonStartCorner.Parent = MoonStartButton
 
 local MoonStopButton = Instance.new("TextButton")
-MoonStopButton.Size = UDim2.new(0, 130, 0, 35)
-MoonStopButton.Position = UDim2.new(1, -140, 1, -45)
+MoonStopButton.Size = UDim2.new(0.5, -15, 0, 35)
+MoonStopButton.Position = UDim2.new(0.5, 5, 1, -45)
 MoonStopButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 MoonStopButton.Text = "Stop"
 MoonStopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -635,12 +840,19 @@ local MoonStopCorner = Instance.new("UICorner")
 MoonStopCorner.CornerRadius = UDim.new(0, 6)
 MoonStopCorner.Parent = MoonStopButton
 
+-- MODIFIED: Added variables and logic for dragging UI elements
 local dragging, dragInput, dragStart, startPos
+local cycleConfigDragging, cycleConfigDragInput, cycleConfigDragStart, cycleConfigStartPos
 local isMinimized = false
 
 local function updateDrag(input)
     local delta = input.Position - dragStart
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+local function updateCycleConfigDrag(input)
+    local delta = input.Position - cycleConfigDragStart
+    CycleConfigFrame.Position = UDim2.new(cycleConfigStartPos.X.Scale, cycleConfigStartPos.X.Offset + delta.X, cycleConfigStartPos.Y.Scale, cycleConfigStartPos.Y.Offset + delta.Y)
 end
 
 Title.InputBegan:Connect(function(input)
@@ -663,9 +875,57 @@ Title.InputEnded:Connect(function(input)
     end
 end)
 
+-- ADDED: Input handlers for the Cycle Config Frame title
+CycleConfigTitle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        cycleConfigDragging = true
+        cycleConfigDragStart = input.Position
+        cycleConfigStartPos = CycleConfigFrame.Position
+    end
+end)
+
+CycleConfigTitle.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        cycleConfigDragInput = input
+    end
+end)
+
+CycleConfigTitle.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        cycleConfigDragging = false
+    end
+end)
+
+
 game:GetService("UserInputService").InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         updateDrag(input)
+    end
+    -- ADDED: Check for cycle config dragging
+    if cycleConfigDragging and input == cycleConfigDragInput then
+        updateCycleConfigDrag(input)
+    end
+end)
+
+ConfigCycleButton.MouseButton1Click:Connect(function()
+    CycleConfigFrame.Visible = true
+end)
+
+CloseCycleConfigButton.MouseButton1Click:Connect(function()
+    CycleConfigFrame.Visible = false
+end)
+
+CycleTowerToggle.MouseButton1Click:Connect(function()
+    cycleTowersEnabled = not cycleTowersEnabled
+    
+    if cycleTowersEnabled then
+        CycleTowerToggle.Text = "ON"
+        CycleTowerToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        CycleTowerLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
+    else
+        CycleTowerToggle.Text = "OFF"
+        CycleTowerToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        CycleTowerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     end
 end)
 
@@ -699,7 +959,7 @@ MinimizeButton.MouseButton1Click:Connect(function()
         TowerFrame.Visible = false
         MoonFrame.Visible = false
         
-        MainFrame:TweenSize(UDim2.new(0, 300, 0, 40), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
+        MainFrame:TweenSize(UDim2.new(0, 320, 0, 40), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
         MinimizeButton.Text = "+"
     else
         TabBar.Visible = true
@@ -709,7 +969,7 @@ MinimizeButton.MouseButton1Click:Connect(function()
             MoonFrame.Visible = true
         end
         
-        MainFrame:TweenSize(UDim2.new(0, 300, 0, 420), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
+        MainFrame:TweenSize(UDim2.new(0, 320, 0, 480), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true) -- MODIFIED: Use new height
         MinimizeButton.Text = "-"
     end
 end)
@@ -868,7 +1128,6 @@ end)
 local function startBattle(floor)
     isBattling = true
     animationTurnCount = 0
-    lastAnimationCount = 0
     StatusLabel.Text = "Status: Starting floor " .. floor .. "..."
     battleAttempts = battleAttempts + 1
     AttemptsLabel.Text = "Attempts: " .. battleAttempts
@@ -897,20 +1156,89 @@ local function monitorBattle()
 end
 
 local function farmLoop()
-    while isRunning and currentFloor <= END_FLOOR do
-        FloorLabel.Text = "Current Floor: " .. currentFloor
-        
-        startBattle(currentFloor)
-        
-        coroutine.wrap(monitorBattle)()
-        
-        while isBattling and isRunning do
-            wait(1)
+    if cycleTowersEnabled then
+        for _, towerName in ipairs(towers) do
+            if not isRunning then break end
+
+            local config = towerCycleConfig[towerName]
+            if config.enabled then
+                local floorsToRun = {}
+                for floor, enabled in pairs(config.floors) do
+                    if enabled then
+                        table.insert(floorsToRun, floor)
+                    end
+                end
+                table.sort(floorsToRun)
+
+                if #floorsToRun > 0 then
+                    TOWER_ID = towerName
+                    StatusLabel.Text = "Status: Cycling to " .. towerName:gsub("_", " ")
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+                    wait(2)
+
+                    for _, floor in ipairs(floorsToRun) do
+                        if not isRunning then break end
+                        
+                        currentFloor = floor
+                        FloorLabel.Text = "Current Floor: " .. currentFloor .. " (" .. TOWER_ID:gsub("_", " ") .. ")"
+                        
+                        battleAttempts = 0
+                        startBattle(currentFloor)
+                        
+                        local monitorThread = coroutine.wrap(monitorBattle)
+                        monitorThread()
+                        
+                        while isBattling and isRunning do
+                            wait(1)
+                        end
+                        
+                        if not isRunning then break end
+                        
+                        wait(2)
+                    end
+                end
+            end
         end
         
-        if not isRunning then break end
+        if isRunning then
+            isRunning = false
+            StatusLabel.Text = "Status: Cycle complete!"
+            StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            StartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        end
+    else
+        local startF = tonumber(StartFloorInput.Text) or 3
+        local endF = tonumber(EndFloorInput.Text) or 25
+        currentFloor = startF
         
-        wait(2)
+        while isRunning and currentFloor <= endF do
+            FloorLabel.Text = "Current Floor: " .. currentFloor
+            
+            startBattle(currentFloor)
+            
+            local monitorThread = coroutine.wrap(monitorBattle)
+            monitorThread()
+            
+            while isBattling and isRunning do
+                wait(1)
+            end
+            
+            if isRunning then
+                isBattling = false
+                if currentFloor < endF then
+                    currentFloor = currentFloor + 1
+                    battleAttempts = 0
+                else
+                    isRunning = false
+                    StatusLabel.Text = "Status: All floors completed!"
+                    StartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+                end
+            end
+            
+            if not isRunning then break end
+            
+            wait(2)
+        end
     end
 end
 
@@ -922,41 +1250,33 @@ rewardConnection = rewardEvent.OnClientEvent:Connect(function(rewards)
         isBattling = false
         StatusLabel.Text = "Status: Floor " .. currentFloor .. " COMPLETED!"
         StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-        
-        if currentFloor == END_FLOOR then
-            isRunning = false
-            StatusLabel.Text = "Status: ALL FLOORS COMPLETED! (" .. START_FLOOR .. "-" .. END_FLOOR .. ")"
-            AttemptsLabel.Text = "Total Attempts: " .. battleAttempts
-            StartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-        else
-            currentFloor = currentFloor + 1
-            battleAttempts = 0
-            wait(1)
-            StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
+        battleAttempts = 0
     end
 end)
 
 StartButton.MouseButton1Click:Connect(function()
     if not isRunning then
-        TOWER_ID = TowerDropdown.Text
-        START_FLOOR = tonumber(StartFloorInput.Text) or 3
-        END_FLOOR = tonumber(EndFloorInput.Text) or 25
-        
-        if TOWER_ID == "" then
-            StatusLabel.Text = "Status: Select a tower!"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            return
-        end
-        
-        if START_FLOOR > END_FLOOR then
-            StatusLabel.Text = "Status: Start floor must be <= End floor!"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            return
+        if not cycleTowersEnabled then
+            TOWER_ID = TowerDropdown.Text
+            START_FLOOR = tonumber(StartFloorInput.Text) or 3
+            END_FLOOR = tonumber(EndFloorInput.Text) or 25
+            
+            if TOWER_ID == "" then
+                StatusLabel.Text = "Status: Select a tower!"
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                return
+            end
+            
+            if START_FLOOR > END_FLOOR then
+                StatusLabel.Text = "Status: Start floor must be <= End floor!"
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                return
+            end
+            
+            currentFloor = START_FLOOR
         end
         
         isRunning = true
-        currentFloor = START_FLOOR
         battleAttempts = 0
         animationTurnCount = 0
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
