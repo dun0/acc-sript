@@ -61,7 +61,7 @@ local moonTimeRemaining = 0
 local rollCount = 0
 
 local towers = {
-    "battle_tower", "watery_depths", "frozen_landscape", "stone_citadel", 
+    "watery_depths", "frozen_landscape", "stone_citadel", 
     "inferno_depths", "lunar_eclipse", "light_fairy"
 }
 local towerCycleConfig = {}
@@ -104,7 +104,7 @@ end)()
 for i, towerName in ipairs(towers) do
     towerCycleConfig[towerName] = {enabled = false, floors = {}}
     for _, floorNum in ipairs(floorOptions) do
-        towerCycleConfig[towerName].floors[floorNum] = false
+        towerCycleConfig[towerName].floors[floorNum] = {enabled = false, teamSlot = 1}
     end
 end
 
@@ -771,7 +771,62 @@ local MoonStopCorner=Instance.new("UICorner")
 MoonStopCorner.CornerRadius=UDim.new(0,6)
 MoonStopCorner.Parent=MoonStopButton
 
-local CycleConfigFrame=Instance.new("Frame")
+local FloorTeamSlotFrame = Instance.new("Frame")
+FloorTeamSlotFrame.Size = UDim2.new(0, 200, 0, 100)
+FloorTeamSlotFrame.Position = UDim2.new(0.5, -100, 0.5, -50)
+FloorTeamSlotFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+FloorTeamSlotFrame.BorderSizePixel = 0
+FloorTeamSlotFrame.Visible = false
+FloorTeamSlotFrame.ZIndex = 200
+FloorTeamSlotFrame.Parent = ScreenGui
+local FloorTeamSlotCorner = Instance.new("UICorner")
+FloorTeamSlotCorner.CornerRadius = UDim.new(0, 8)
+FloorTeamSlotCorner.Parent = FloorTeamSlotFrame
+
+local FloorTeamSlotTitle = Instance.new("TextLabel")
+FloorTeamSlotTitle.Size = UDim2.new(1, 0, 0, 30)
+FloorTeamSlotTitle.BackgroundTransparency = 1
+FloorTeamSlotTitle.Text = "Set Team Slot"
+FloorTeamSlotTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloorTeamSlotTitle.Font = Enum.Font.GothamBold
+FloorTeamSlotTitle.TextSize = 14
+FloorTeamSlotTitle.ZIndex = 201
+FloorTeamSlotTitle.Parent = FloorTeamSlotFrame
+
+local FloorTeamSlotInput = Instance.new("TextBox")
+FloorTeamSlotInput.Size = UDim2.new(0, 60, 0, 30)
+FloorTeamSlotInput.Position = UDim2.new(0.5, -30, 0, 40)
+FloorTeamSlotInput.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+FloorTeamSlotInput.Text = "1"
+FloorTeamSlotInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloorTeamSlotInput.Font = Enum.Font.Gotham
+FloorTeamSlotInput.TextSize = 14
+FloorTeamSlotInput.PlaceholderText = "1-8"
+FloorTeamSlotInput.ZIndex = 201
+FloorTeamSlotInput.Parent = FloorTeamSlotFrame
+local FloorTeamSlotInputCorner = Instance.new("UICorner")
+FloorTeamSlotInputCorner.CornerRadius = UDim.new(0, 6)
+FloorTeamSlotInputCorner.Parent = FloorTeamSlotInput
+
+local FloorTeamSlotConfirm = Instance.new("TextButton")
+FloorTeamSlotConfirm.Size = UDim2.new(0, 80, 0, 25)
+FloorTeamSlotConfirm.Position = UDim2.new(0.5, -40, 1, -32)
+FloorTeamSlotConfirm.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+FloorTeamSlotConfirm.Text = "OK"
+FloorTeamSlotConfirm.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloorTeamSlotConfirm.Font = Enum.Font.GothamBold
+FloorTeamSlotConfirm.TextSize = 12
+FloorTeamSlotConfirm.ZIndex = 201
+FloorTeamSlotConfirm.Parent = FloorTeamSlotFrame
+local FloorTeamSlotConfirmCorner = Instance.new("UICorner")
+FloorTeamSlotConfirmCorner.CornerRadius = UDim.new(0, 6)
+FloorTeamSlotConfirmCorner.Parent = FloorTeamSlotConfirm
+
+local currentFloorButton = nil
+local currentFloorTower = nil
+local currentFloorNumber = nil
+
+local CycleConfigFrame = Instance.new("Frame")
 CycleConfigFrame.Size=UDim2.new(0,380,0,400)
 CycleConfigFrame.Position=UDim2.new(0.5,-190,0.5,-200)
 CycleConfigFrame.BackgroundColor3=Color3.fromRGB(35,35,45)
@@ -893,14 +948,27 @@ FloorButton.Parent=TowerConfigFrame
 local FloorButtonCorner=Instance.new("UICorner")
 FloorButtonCorner.CornerRadius=UDim.new(0,4)
 FloorButtonCorner.Parent=FloorButton
+
+local floorConfig = towerCycleConfig[towerName].floors[floor]
+if floorConfig.enabled then
+    FloorButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+end
+
 FloorButton.MouseButton1Click:Connect(function()
-local floorConfig=towerCycleConfig[towerName].floors
-floorConfig[floor]=not floorConfig[floor]
-if floorConfig[floor]then
+floorConfig.enabled = not floorConfig.enabled
+if floorConfig.enabled then
 FloorButton.BackgroundColor3=Color3.fromRGB(50,150,50)
 else
 FloorButton.BackgroundColor3=Color3.fromRGB(60,60,70)
 end
+end)
+
+FloorButton.MouseButton2Click:Connect(function()
+    currentFloorButton = FloorButton
+    currentFloorTower = towerName
+    currentFloorNumber = floor
+    FloorTeamSlotInput.Text = tostring(floorConfig.teamSlot or 1)
+    FloorTeamSlotFrame.Visible = true
 end)
 end
 end
@@ -1072,7 +1140,7 @@ local function populateBossConfigUI()
             end
         end
     end
-    BossConfigScrollFrame.CanvasSize = UDim2.fromOffset(0, BossConfigListLayout.AbsoluteContentSize.Y)
+    BossConfigScrollFrame.CanvasSize = UDim2.new(0, 0, 0, BossConfigListLayout.AbsoluteContentSize.Y)
 end
 
 local isMinimized = false
@@ -1111,6 +1179,23 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
     if bossDragState.dragging and input == bossDragState.dragInput then
         local delta = input.Position - bossDragState.dragStart
         BossConfigFrame.Position = UDim2.new(bossDragState.startPos.X.Scale, bossDragState.startPos.X.Offset + delta.X, bossDragState.startPos.Y.Scale, bossDragState.startPos.Y.Offset + delta.Y)
+    end
+end)
+
+FloorTeamSlotConfirm.MouseButton1Click:Connect(function()
+    local num = tonumber(FloorTeamSlotInput.Text)
+    if num and num >= 1 and num <= 8 and currentFloorTower and currentFloorNumber then
+        local floorConfig = towerCycleConfig[currentFloorTower].floors[currentFloorNumber]
+        floorConfig.teamSlot = math.floor(num)
+        FloorTeamSlotFrame.Visible = false
+    else
+        FloorTeamSlotInput.Text = "1-8"
+    end
+end)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Escape and FloorTeamSlotFrame.Visible then
+        FloorTeamSlotFrame.Visible = false
     end
 end)
 
@@ -1225,21 +1310,30 @@ local function towerFarmLoop()
             local config = towerCycleConfig[towerName]
             if config.enabled then
                 local floorsToRun = {}
-                for floor, enabled in pairs(config.floors) do if enabled then table.insert(floorsToRun, floor) end end
-                table.sort(floorsToRun)
+                for floor, floorData in pairs(config.floors) do 
+                    if floorData.enabled then 
+                        table.insert(floorsToRun, {floor = floor, teamSlot = floorData.teamSlot or 1}) 
+                    end 
+                end
+                table.sort(floorsToRun, function(a, b) return a.floor < b.floor end)
                 if #floorsToRun > 0 then
                     TOWER_ID = towerName
                     StatusLabel.Text = "Status: Cycling to " .. towerName:gsub("_", " ")
                     wait(2)
-                    for _, floor in ipairs(floorsToRun) do
+                    for _, floorData in ipairs(floorsToRun) do
                         if not isRunning then break end
-                        currentFloor = floor
+                        currentFloor = floorData.floor
+                        
+                        StatusLabel.Text = "Status: Switching to Team " .. floorData.teamSlot
+                        setPartySlotEvent:FireServer("slot_" .. tostring(floorData.teamSlot))
+                        wait(1.5)
+                        
                         FloorLabel.Text = "Current Floor: " .. currentFloor .. " (" .. TOWER_ID:gsub("_", " ") .. ")"
                         battleAttempts = 0
                         currentBattleType = "tower"
                         animationTurnCount = 0
                         isBattling = true
-                        fightTowerEvent:FireServer(TOWER_ID, floor)
+                        fightTowerEvent:FireServer(TOWER_ID, floorData.floor)
                         coroutine.wrap(monitorBattle)()
                         while isBattling and isRunning do wait(1) end
                         if not isRunning then break end
