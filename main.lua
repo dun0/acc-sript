@@ -744,6 +744,22 @@ LoopToggle.Parent=MoonFrame
 local LoopToggleCorner=Instance.new("UICorner")
 LoopToggleCorner.CornerRadius=UDim.new(0,6)
 LoopToggleCorner.Parent=LoopToggle
+
+--[[ NEW RAID MINION FARMER BUTTON ]]--
+local RaidMinionToggle = Instance.new("TextButton")
+RaidMinionToggle.Size = UDim2.new(1, -20, 0, 30)
+RaidMinionToggle.Position = UDim2.new(0, 10, 0, 260) -- Positioned below the LoopToggle
+RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+RaidMinionToggle.Text = "RAID MINION: OFF"
+RaidMinionToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+RaidMinionToggle.TextSize = 14
+RaidMinionToggle.Font = Enum.Font.GothamBold
+RaidMinionToggle.BorderSizePixel = 0
+RaidMinionToggle.Parent = MoonFrame
+local RaidMinionToggleCorner = Instance.new("UICorner")
+RaidMinionToggleCorner.CornerRadius = UDim.new(0, 6)
+RaidMinionToggleCorner.Parent = RaidMinionToggle
+
 local MoonStartButton=Instance.new("TextButton")
 MoonStartButton.Size=UDim2.new(0.5,-15,0,35)
 MoonStartButton.Position=UDim2.new(0,10,1,-45)
@@ -825,7 +841,6 @@ FloorTeamSlotConfirmCorner.Parent = FloorTeamSlotConfirm
 local currentFloorButton = nil
 local currentFloorTower = nil
 local currentFloorNumber = nil
-
 local CycleConfigFrame = Instance.new("Frame")
 CycleConfigFrame.Size=UDim2.new(0,380,0,400)
 CycleConfigFrame.Position=UDim2.new(0.5,-190,0.5,-200)
@@ -1520,6 +1535,79 @@ coroutine.wrap(function() while true do wait(1) if moonTimeRemaining > 0 then mo
 function rollMoons() if moonRolling then return end; moonRolling = true; rollCount = 0; RollCountLabel.Text = "Rolls Used: 0"; MoonStatusLabel.Text = "Status: Rolling for " .. getMoonDisplay(targetMoon) .. "..."; while moonRolling do local currentTier = getMoonTier(currentMoon) if currentTier >= targetMoonTier then if currentTier == targetMoonTier then MoonStatusLabel.Text = "Status: Target moon reached!" else MoonStatusLabel.Text = "Status: Higher tier moon! Stopping..." end; moonRolling = false; break end; pcall(function() useItemEvent:FireServer("moon_cycle_reroll_potion", 1) end); rollCount = rollCount + 1; RollCountLabel.Text = "Rolls Used: " .. rollCount; wait(0.01) end; if not moonRolling then MoonStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50) end end
 MoonStartButton.MouseButton1Click:Connect(function() if not moonRolling then MoonStartButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100); coroutine.wrap(rollMoons)() end end)
 MoonStopButton.MouseButton1Click:Connect(function() moonRolling = false; MoonStatusLabel.Text = "Status: Stopped"; MoonStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50) end)
+
+--[[ RAID MINION FARMER LOGIC ]]--
+local isRaidFarmingEnabled = false
+local RAID_CONFIG = {
+    MINION_NAMES = {"infernal_demon", "infernal"},
+    SCAN_INTERVAL = 0.2,
+    PENDING_COMBAT_TIMEOUT = 4.0,
+    PROXIMITY_RANGE_OVERRIDE = 99999
+}
+
+local combatState = "IDLE"
+local pendingStartTime = 0
+
+local battleEndEvent = ReplicatedStorage["shared/network@eventDefinitions"].showBattleEndScreen
+
+local raidMinionNameSet = {}
+for _, name in ipairs(RAID_CONFIG.MINION_NAMES) do
+    raidMinionNameSet[name] = true
+end
+
+animationEvent.OnClientEvent:Connect(function()
+    if combatState == "PENDING" then
+        combatState = "IN_COMBAT"
+    end
+end)
+
+battleEndEvent.OnClientEvent:Connect(function()
+    if combatState ~= "IDLE" then
+        combatState = "IDLE"
+    end
+end)
+
+RaidMinionToggle.MouseButton1Click:Connect(function()
+    isRaidFarmingEnabled = not isRaidFarmingEnabled
+    if isRaidFarmingEnabled then
+        RaidMinionToggle.Text = "RAID MINION: ON"
+        RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    else
+        RaidMinionToggle.Text = "RAID MINION: OFF"
+        RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        combatState = "IDLE"
+    end
+end)
+
+coroutine.wrap(function()
+    while true do
+        task.wait(RAID_CONFIG.SCAN_INTERVAL)
+
+        if combatState == "IDLE" and isRaidFarmingEnabled then
+            for _, model in ipairs(game:GetService("Workspace"):GetDescendants()) do
+                if model:IsA("Model") and raidMinionNameSet[model.Name] then
+                    local prompt = model:FindFirstChildOfClass("ProximityPrompt")
+                    if prompt then
+                        local originalDistance = prompt.MaxActivationDistance
+                        prompt.MaxActivationDistance = RAID_CONFIG.PROXIMITY_RANGE_OVERRIDE
+                        fireproximityprompt(prompt)
+                        prompt.MaxActivationDistance = originalDistance
+                        
+                        combatState = "PENDING"
+                        pendingStartTime = os.clock()
+                        
+                        break 
+                    end
+                end
+            end
+        elseif combatState == "PENDING" then
+            if os.clock() - pendingStartTime > RAID_CONFIG.PENDING_COMBAT_TIMEOUT then
+                combatState = "IDLE"
+            end
+        end
+    end
+end)()
+
 
 loadBossConfig()
 populateBossConfigUI()
