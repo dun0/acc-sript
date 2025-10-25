@@ -147,28 +147,28 @@ loadCycleConfig()
 
 local isBossFarming = false
 local bossData = {
-	[308] = "Bijuu Beast",
-	[381] = "Awakened Galactic Tyrant",
-	[330] = "King of Curses",
-	[355] = "Combat Giant",
-	[458] = "Awakened Pale Demon Lord",
-	[348] = "Soul Queen",
-	[322] = "Awakened Shadow Monarch",
-	[300] = "Lord Of Eminence",
-	[366] = "Celestial Sovereign",
-	[343] = "Undead King"
+	[307] = "Bijuu Beast",
+	[380] = "Awakened Galactic Tyrant",
+	[329] = "King of Curses",
+	[354] = "Combat Giant",
+	[456] = "Awakened Pale Demon Lord",
+	[347] = "Soul Queen",
+	[321] = "Awakened Shadow Monarch",
+	[299] = "Lord Of Eminence",
+	[365] = "Celestial Sovereign",
+	[342] = "Undead King"
 }
 local bossOrder = {
-	308,
-	381,
-	330,
-	355,
-	458,
-	348,
-	322,
-	300,
-	366,
-	343
+	307,
+	380,
+	329,
+	354,
+	456,
+	347,
+	321,
+	299,
+	365,
+	342
 }
 local bossDifficulties = {
 	"normal",
