@@ -26,7 +26,7 @@ local antiAfkEnabled = false
 
 local fightTowerEvent = ReplicatedStorage["shared/network@eventDefinitions"].fightBattleTowerWave
 local fightBossEvent = ReplicatedStorage["shared/network@eventDefinitions"].fightStoryBoss
-local setPartySlotEvent = ReplicatedStorage["shared/network@eventDefinitions"].setPartySlot
+local setDefaultPartySlotEvent = ReplicatedStorage["shared/network@eventDefinitions"].setDefaultPartySlot
 local rewardEvent = ReplicatedStorage["shared/network@eventDefinitions"].notifyRewards
 local animationEvent = ReplicatedStorage["shared/network@eventDefinitions"].playBattleAnimation
 local dispatchEvent = ReplicatedStorage["shared/network@eventDefinitions"].dispatch
@@ -39,6 +39,7 @@ local animationTurnCount = 0
 local battleAttempts = 0
 local currentFloor = START_FLOOR
 local isBlockingRewards = false
+local function rollMoons() end
 
 local moons = {
 	{
@@ -1482,7 +1483,7 @@ local function towerFarmLoop()
 						end
 						currentFloor = floorData.floor
 						StatusLabel.Text = "Status: Switching to Team " .. floorData.teamSlot
-						setPartySlotEvent:FireServer("slot_" .. tostring(floorData.teamSlot))
+						setDefaultPartySlotEvent:FireServer("slot_" .. tostring(floorData.teamSlot))
 						wait(1.5)
 						FloorLabel.Text = "Current Floor: " .. currentFloor .. " (" .. TOWER_ID:gsub("_", " ") .. ")"
 						battleAttempts = 0
@@ -1557,7 +1558,7 @@ local function bossFarmLoop()
 					if diffConfig.enabled then
 						if os.time() >= diffConfig.cooldownEnd then
 							BossStatusLabel.Text = string.format("Switching to Team %d...", diffConfig.teamSlot)
-							setPartySlotEvent:FireServer("slot_" .. tostring(diffConfig.teamSlot))
+							setDefaultPartySlotEvent:FireServer("slot_" .. tostring(diffConfig.teamSlot))
 							wait(1.5)
 							BossStatusLabel.Text = string.format("Fighting %s (%s)...", boss.name, diff)
 							currentBattleType = "boss"
@@ -1743,7 +1744,7 @@ coroutine.wrap(function()
 		end
 	end
 end)()
-function rollMoons()
+local function rollMoons()
 	if moonRolling then
 		return
 	end;
