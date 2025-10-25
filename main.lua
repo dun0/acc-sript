@@ -14,7 +14,7 @@ if not isfolder("Roblox/boss-retry") then
 	makefolder("Roblox/boss-retry")
 end
 local CONFIG_FILE_PATH = "Roblox/boss-retry/boss_config.json"
-local CYCLE_CFG_PATH = "acc_cycle_config.json"
+local CYCLE_CFG_PATH = "Roblox/boss-retry/acc_cycle_config.json"
 
 local STALL_CHECK_INTERVAL = 5
 local ANTI_AFK_INTERVAL = 30
@@ -117,13 +117,7 @@ local towers = {
 }
 local towerCycleConfig = {}
 local cycleTowersEnabled = false
-local floorOptions = {
-	5,
-	10,
-	15,
-	20,
-	25
-}
+local floorOptions = { 5, 10, 15, 20, 25 }
 
 local function saveCycleConfig()
         if not towerCycleConfig then
@@ -147,6 +141,8 @@ local function loadCycleConfig()
                 end
         end
 end
+
+loadCycleConfig()
 
 
 local isBossFarming = false
@@ -206,22 +202,22 @@ end)()
 for _, towerName in ipairs(towers) do
     local towerConfig = towerCycleConfig[towerName] or { enabled = false, floors = {} }
     towerCycleConfig[towerName] = towerConfig
-
-    if towerConfig.enabled == nil then
-        towerConfig.enabled = false
-    end
+    if towerConfig.enabled == nil then towerConfig.enabled = false end
     towerConfig.floors = towerConfig.floors or {}
 
     for _, floorNum in ipairs(floorOptions) do
         local floorConfig = towerConfig.floors[floorNum]
         if not floorConfig then
-            towerConfig.floors[floorNum] = { enabled = false, teamSlot = 1 }
+            towerCycleConfig[towerName].floors[floorNum] = { enabled = false, teamSlot = 1 }
         else
             if floorConfig.enabled == nil then floorConfig.enabled = false end
             if floorConfig.teamSlot == nil then floorConfig.teamSlot = 1 end
         end
     end
 end
+
+saveCycleConfig()
+
 
 local function saveBossConfig()
 	local success, encodedData = pcall(HttpService.JSONEncode, HttpService, bossConfig)
@@ -1063,6 +1059,7 @@ for i, towerName in ipairs(towers) do
 			TowerEnableButton.Text = "OFF"
 			TowerEnableButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 		end
+		saveCycleConfig()
 	end)
 	local FloorSelectLabel = Instance.new("TextLabel")
 	FloorSelectLabel.Size = UDim2.new(1, -10, 0, 20)
@@ -1101,6 +1098,7 @@ for i, towerName in ipairs(towers) do
 			else
 				FloorButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 			end
+			saveCycleConfig()
 		end)
 		FloorButton.MouseButton2Click:Connect(function()
 			currentFloorButton = FloorButton
