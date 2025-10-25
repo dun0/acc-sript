@@ -14,6 +14,7 @@ if not isfolder("Roblox/boss-retry") then
 	makefolder("Roblox/boss-retry")
 end
 local CONFIG_FILE_PATH = "Roblox/boss-retry/boss_config.json"
+local CYCLE_CFG_PATH = "acc_cycle_config.json"
 
 local STALL_CHECK_INTERVAL = 5
 local ANTI_AFK_INTERVAL = 30
@@ -124,6 +125,30 @@ local floorOptions = {
 	25
 }
 
+local function saveCycleConfig()
+        if not towerCycleConfig then
+                return
+        end
+        local ok, json = pcall(function()
+                return HttpService:JSONEncode(towerCycleConfig)
+        end)
+        if ok then
+                writefile(CYCLE_CFG_PATH, json)
+        end
+end
+
+local function loadCycleConfig()
+        if isfile(CYCLE_CFG_PATH) then
+                local ok, data = pcall(function()
+                        return HttpService:JSONDecode(readfile(CYCLE_CFG_PATH))
+                end)
+                if ok and type(data) == "table" then
+                        towerCycleConfig = data
+                end
+        end
+end
+
+
 local isBossFarming = false
 local bossData = {
 	[308] = "Bijuu Beast",
@@ -178,17 +203,24 @@ coroutine.wrap(function()
 	end
 end)()
 
-for i, towerName in ipairs(towers) do
-	towerCycleConfig[towerName] = {
-		enabled = false,
-		floors = {}
-	}
-	for _, floorNum in ipairs(floorOptions) do
-		towerCycleConfig[towerName].floors[floorNum] = {
-			enabled = false,
-			teamSlot = 1
-		}
-	end
+for _, towerName in ipairs(towers) do
+    local towerConfig = towerCycleConfig[towerName] or { enabled = false, floors = {} }
+    towerCycleConfig[towerName] = towerConfig
+
+    if towerConfig.enabled == nil then
+        towerConfig.enabled = false
+    end
+    towerConfig.floors = towerConfig.floors or {}
+
+    for _, floorNum in ipairs(floorOptions) do
+        local floorConfig = towerConfig.floors[floorNum]
+        if not floorConfig then
+            towerConfig.floors[floorNum] = { enabled = false, teamSlot = 1 }
+        else
+            if floorConfig.enabled == nil then floorConfig.enabled = false end
+            if floorConfig.teamSlot == nil then floorConfig.teamSlot = 1 end
+        end
+    end
 end
 
 local function saveBossConfig()
@@ -1290,15 +1322,17 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
 end)
 
 FloorTeamSlotConfirm.MouseButton1Click:Connect(function()
-	local num = tonumber(FloorTeamSlotInput.Text)
-	if num and num >= 1 and num <= 8 and currentFloorTower and currentFloorNumber then
-		local floorConfig = towerCycleConfig[currentFloorTower].floors[currentFloorNumber]
-		floorConfig.teamSlot = math.floor(num)
-		FloorTeamSlotFrame.Visible = false
-	else
-		FloorTeamSlotInput.Text = "1-8"
-	end
+    local num = tonumber(FloorTeamSlotInput.Text)
+    if num and num >= 1 and num <= 8 and currentFloorTower and currentFloorNumber then
+        local floorConfig = towerCycleConfig[currentFloorTower].floors[currentFloorNumber]
+        floorConfig.teamSlot = math.floor(num)
+        saveCycleConfig()
+        FloorTeamSlotFrame.Visible = false
+    else
+        FloorTeamSlotInput.Text = "1-8"
+    end
 end)
+
 
 game:GetService("UserInputService").InputBegan:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Escape and FloorTeamSlotFrame.Visible then
@@ -1307,10 +1341,12 @@ game:GetService("UserInputService").InputBegan:Connect(function(input)
 end)
 
 ConfigCycleButton.MouseButton1Click:Connect(function()
-	CycleConfigFrame.Visible = true
+    CycleConfigFrame.Visible = true
 end)
+
 CloseCycleConfigButton.MouseButton1Click:Connect(function()
-	CycleConfigFrame.Visible = false
+    CycleConfigFrame.Visible = false
+    saveCycleConfig()
 end)
 ConfigBossesButton.MouseButton1Click:Connect(function()
 	populateBossConfigUI()
