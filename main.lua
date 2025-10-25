@@ -117,12 +117,29 @@ local towers = {
 local towerCycleConfig = {}
 local cycleTowersEnabled = false
 local floorOptions = {
-	5,
-	10,
-	15,
-	20,
-	25
+        5,
+        10,
+        15,
+        20,
+        25
 }
+
+local MAX_DROPDOWN_HEIGHT = 180
+
+local function formatTowerName(name)
+        return (name:gsub("_", " "):gsub("(%a)([%w']*)", function(first, rest)
+                return first:upper() .. rest:lower()
+        end))
+end
+
+local function applyStroke(instance, color, thickness)
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = color or Color3.fromRGB(70, 70, 90)
+        stroke.Thickness = thickness or 1
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = instance
+        return stroke
+end
 
 local isBossFarming = false
 local bossData = {
@@ -248,6 +265,7 @@ MainFrame.Position = UDim2.new(0.5, -160, 0.5, -240)
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
+applyStroke(MainFrame, Color3.fromRGB(60, 60, 80), 1.2)
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
@@ -350,12 +368,13 @@ TowerDropdown.Size = UDim2.new(1, -20, 0, 30)
 TowerDropdown.Position = UDim2.new(0, 10, 0, 30)
 TowerDropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 TowerDropdown.BorderSizePixel = 0
-TowerDropdown.Text = "light_fairy"
+TowerDropdown.Text = formatTowerName(TOWER_ID)
 TowerDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
 TowerDropdown.TextSize = 14
 TowerDropdown.Font = Enum.Font.Gotham
 TowerDropdown.TextXAlignment = Enum.TextXAlignment.Left
 TowerDropdown.Parent = TowerFrame
+TowerDropdown:SetAttribute("SelectedTowerId", TOWER_ID)
 local TowerDropdownPadding = Instance.new("UIPadding")
 TowerDropdownPadding.PaddingLeft = UDim.new(0, 10)
 TowerDropdownPadding.Parent = TowerDropdown
@@ -383,21 +402,42 @@ DropdownMenu.ZIndex = 10
 local DropdownMenuCorner = Instance.new("UICorner")
 DropdownMenuCorner.CornerRadius = UDim.new(0, 6)
 DropdownMenuCorner.Parent = DropdownMenu
+applyStroke(DropdownMenu)
 local DropdownList = Instance.new("UIListLayout")
 DropdownList.SortOrder = Enum.SortOrder.LayoutOrder
 DropdownList.Parent = DropdownMenu
+local towerDropdownContentHeight = 0
+local function updateTowerDropdownMetrics()
+        towerDropdownContentHeight = DropdownList.AbsoluteContentSize.Y
+end
+DropdownList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateTowerDropdownMetrics)
+task.defer(updateTowerDropdownMetrics)
 local dropdownOpen = false
+local function setTowerDropdownState(shouldOpen)
+        dropdownOpen = shouldOpen
+        if dropdownOpen then
+                DropdownMenu.Visible = true
+                local targetHeight = math.clamp(towerDropdownContentHeight, 0, MAX_DROPDOWN_HEIGHT)
+                DropdownMenu:TweenSize(UDim2.new(1, -20, 0, targetHeight), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+                DropdownArrow.Text = "▲"
+        else
+                DropdownMenu:TweenSize(UDim2.new(1, -20, 0, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true, function()
+                        DropdownMenu.Visible = false
+                end)
+                DropdownArrow.Text = "▼"
+        end
+end
 for i, towerName in ipairs(towers) do
-	local TowerOption = Instance.new("TextButton")
-	TowerOption.Size = UDim2.new(1, 0, 0, 30)
-	TowerOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	TowerOption.BorderSizePixel = 0
-	TowerOption.Text = towerName
-	TowerOption.TextColor3 = Color3.fromRGB(255, 255, 255)
-	TowerOption.TextSize = 14
-	TowerOption.Font = Enum.Font.Gotham
-	TowerOption.TextXAlignment = Enum.TextXAlignment.Left
-	TowerOption.Parent = DropdownMenu
+        local TowerOption = Instance.new("TextButton")
+        TowerOption.Size = UDim2.new(1, 0, 0, 30)
+        TowerOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        TowerOption.BorderSizePixel = 0
+        TowerOption.Text = formatTowerName(towerName)
+        TowerOption.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TowerOption.TextSize = 14
+        TowerOption.Font = Enum.Font.Gotham
+        TowerOption.TextXAlignment = Enum.TextXAlignment.Left
+        TowerOption.Parent = DropdownMenu
 	TowerOption.ZIndex = 10
 	local OptionPadding = Instance.new("UIPadding")
 	OptionPadding.PaddingLeft = UDim.new(0, 10)
@@ -405,28 +445,17 @@ for i, towerName in ipairs(towers) do
 	TowerOption.MouseEnter:Connect(function()
 		TowerOption.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 	end)
-	TowerOption.MouseLeave:Connect(function()
-		TowerOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	end)
-	TowerOption.MouseButton1Click:Connect(function()
-		TowerDropdown.Text = towerName
-		DropdownMenu.Visible = false
-		dropdownOpen = false
-		DropdownArrow.Text = "▼"
-	end)
+        TowerOption.MouseLeave:Connect(function()
+                TowerOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        end)
+        TowerOption.MouseButton1Click:Connect(function()
+                TowerDropdown:SetAttribute("SelectedTowerId", towerName)
+                TowerDropdown.Text = formatTowerName(towerName)
+                setTowerDropdownState(false)
+        end)
 end
 TowerDropdown.MouseButton1Click:Connect(function()
-	dropdownOpen = not dropdownOpen
-	DropdownMenu.Visible = dropdownOpen
-	if dropdownOpen then
-		DropdownMenu:TweenSize(UDim2.new(1, -20, 0, # towers * 30), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-		DropdownArrow.Text = "▲"
-	else
-		DropdownMenu:TweenSize(UDim2.new(1, -20, 0, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true, function()
-			DropdownMenu.Visible = false
-		end)
-		DropdownArrow.Text = "▼"
-	end
+        setTowerDropdownState(not dropdownOpen)
 end)
 local StartFloorLabel = Instance.new("TextLabel")
 StartFloorLabel.Size = UDim2.new(0.5, -15, 0, 20)
@@ -631,6 +660,12 @@ BossCooldownListFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 BossCooldownListFrame.BorderSizePixel = 0
 BossCooldownListFrame.ScrollBarThickness = 6
 BossCooldownListFrame.Parent = BossFrame
+applyStroke(BossCooldownListFrame)
+local BossCooldownPadding = Instance.new("UIPadding")
+BossCooldownPadding.PaddingLeft = UDim.new(0, 8)
+BossCooldownPadding.PaddingRight = UDim.new(0, 8)
+BossCooldownPadding.PaddingTop = UDim.new(0, 6)
+BossCooldownPadding.Parent = BossCooldownListFrame
 local BossCooldownListCorner = Instance.new("UICorner")
 BossCooldownListCorner.CornerRadius = UDim.new(0, 6)
 BossCooldownListCorner.Parent = BossCooldownListFrame
@@ -638,6 +673,12 @@ local BossCooldownListLayout = Instance.new("UIListLayout")
 BossCooldownListLayout.Padding = UDim.new(0, 5)
 BossCooldownListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 BossCooldownListLayout.Parent = BossCooldownListFrame
+BossCooldownListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        BossCooldownListFrame.CanvasSize = UDim2.fromOffset(0, BossCooldownListLayout.AbsoluteContentSize.Y)
+end)
+task.defer(function()
+        BossCooldownListFrame.CanvasSize = UDim2.fromOffset(0, BossCooldownListLayout.AbsoluteContentSize.Y)
+end)
 
 local ConfigBossesButton = Instance.new("TextButton")
 ConfigBossesButton.Size = UDim2.new(1, -20, 0, 30)
@@ -713,7 +754,7 @@ MoonDropdown.Size = UDim2.new(1, -20, 0, 30)
 MoonDropdown.Position = UDim2.new(0, 10, 0, 105)
 MoonDropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 MoonDropdown.BorderSizePixel = 0
-MoonDropdown.Text = "Harvest Moon"
+MoonDropdown.Text = getMoonDisplay(targetMoon)
 MoonDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
 MoonDropdown.TextSize = 14
 MoonDropdown.Font = Enum.Font.Gotham
@@ -746,15 +787,36 @@ MoonDropdownMenu.ZIndex = 10
 local MoonDropdownMenuCorner = Instance.new("UICorner")
 MoonDropdownMenuCorner.CornerRadius = UDim.new(0, 6)
 MoonDropdownMenuCorner.Parent = MoonDropdownMenu
+applyStroke(MoonDropdownMenu)
 local MoonDropdownList = Instance.new("UIListLayout")
 MoonDropdownList.SortOrder = Enum.SortOrder.LayoutOrder
 MoonDropdownList.Parent = MoonDropdownMenu
 local moonDropdownOpen = false
+local moonDropdownContentHeight = 0
+local function updateMoonDropdownMetrics()
+        moonDropdownContentHeight = MoonDropdownList.AbsoluteContentSize.Y
+end
+MoonDropdownList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateMoonDropdownMetrics)
+task.defer(updateMoonDropdownMetrics)
+local function setMoonDropdownState(shouldOpen)
+        moonDropdownOpen = shouldOpen
+        if moonDropdownOpen then
+                MoonDropdownMenu.Visible = true
+                local targetHeight = math.clamp(moonDropdownContentHeight, 0, MAX_DROPDOWN_HEIGHT)
+                MoonDropdownMenu:TweenSize(UDim2.new(1, -20, 0, targetHeight), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+                MoonDropdownArrow.Text = "▲"
+        else
+                MoonDropdownMenu:TweenSize(UDim2.new(1, -20, 0, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true, function()
+                        MoonDropdownMenu.Visible = false
+                end)
+                MoonDropdownArrow.Text = "▼"
+        end
+end
 for i, moon in ipairs(moons) do
-	local MoonOption = Instance.new("TextButton")
-	MoonOption.Size = UDim2.new(1, 0, 0, 30)
-	MoonOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	MoonOption.BorderSizePixel = 0
+        local MoonOption = Instance.new("TextButton")
+        MoonOption.Size = UDim2.new(1, 0, 0, 30)
+        MoonOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        MoonOption.BorderSizePixel = 0
 	MoonOption.Text = moon.display
 	MoonOption.TextColor3 = Color3.fromRGB(255, 255, 255)
 	MoonOption.TextSize = 14
@@ -768,30 +830,18 @@ for i, moon in ipairs(moons) do
 	MoonOption.MouseEnter:Connect(function()
 		MoonOption.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 	end)
-	MoonOption.MouseLeave:Connect(function()
-		MoonOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	end)
-	MoonOption.MouseButton1Click:Connect(function()
-		MoonDropdown.Text = moon.display
-		targetMoon = moon.name
-		targetMoonTier = moon.tier
-		MoonDropdownMenu.Visible = false
-		moonDropdownOpen = false
-		MoonDropdownArrow.Text = "▼"
-	end)
+        MoonOption.MouseLeave:Connect(function()
+                MoonOption.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        end)
+        MoonOption.MouseButton1Click:Connect(function()
+                MoonDropdown.Text = moon.display
+                targetMoon = moon.name
+                targetMoonTier = moon.tier
+                setMoonDropdownState(false)
+        end)
 end
 MoonDropdown.MouseButton1Click:Connect(function()
-	moonDropdownOpen = not moonDropdownOpen
-	MoonDropdownMenu.Visible = moonDropdownOpen
-	if moonDropdownOpen then
-		MoonDropdownMenu:TweenSize(UDim2.new(1, -20, 0, # moons * 30), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-		MoonDropdownArrow.Text = "▲"
-	else
-		MoonDropdownMenu:TweenSize(UDim2.new(1, -20, 0, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true, function()
-			MoonDropdownMenu.Visible = false
-		end)
-		MoonDropdownArrow.Text = "▼"
-	end
+        setMoonDropdownState(not moonDropdownOpen)
 end)
 local MoonStatusLabel = Instance.new("TextLabel")
 MoonStatusLabel.Size = UDim2.new(1, -20, 0, 30)
@@ -890,6 +940,7 @@ FloorTeamSlotFrame.BorderSizePixel = 0
 FloorTeamSlotFrame.Visible = false
 FloorTeamSlotFrame.ZIndex = 200
 FloorTeamSlotFrame.Parent = ScreenGui
+applyStroke(FloorTeamSlotFrame)
 local FloorTeamSlotCorner = Instance.new("UICorner")
 FloorTeamSlotCorner.CornerRadius = UDim.new(0, 8)
 FloorTeamSlotCorner.Parent = FloorTeamSlotFrame
@@ -944,6 +995,7 @@ CycleConfigFrame.BorderSizePixel = 0
 CycleConfigFrame.Visible = false
 CycleConfigFrame.ZIndex = 100
 CycleConfigFrame.Parent = ScreenGui
+applyStroke(CycleConfigFrame, Color3.fromRGB(60, 60, 80), 1.2)
 local CycleConfigCorner = Instance.new("UICorner")
 CycleConfigCorner.CornerRadius = UDim.new(0, 10)
 CycleConfigCorner.Parent = CycleConfigFrame
@@ -986,6 +1038,11 @@ local CycleListLayout = Instance.new("UIListLayout")
 CycleListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 CycleListLayout.Padding = UDim.new(0, 10)
 CycleListLayout.Parent = CycleScrollFrame
+local function updateCycleCanvas()
+        CycleScrollFrame.CanvasSize = UDim2.fromOffset(0, CycleListLayout.AbsoluteContentSize.Y)
+end
+CycleListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCycleCanvas)
+task.defer(updateCycleCanvas)
 for i, towerName in ipairs(towers) do
 	local TowerConfigFrame = Instance.new("Frame")
 	TowerConfigFrame.Size = UDim2.new(1, 0, 0, 90)
@@ -1000,7 +1057,7 @@ for i, towerName in ipairs(towers) do
 	TowerNameLabel.Size = UDim2.new(1, -85, 0, 25)
 	TowerNameLabel.Position = UDim2.new(0, 10, 0, 5)
 	TowerNameLabel.BackgroundTransparency = 1
-	TowerNameLabel.Text = towerName:gsub("_", " "):upper()
+        TowerNameLabel.Text = formatTowerName(towerName):upper()
 	TowerNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	TowerNameLabel.TextSize = 14
 	TowerNameLabel.Font = Enum.Font.GothamBold
@@ -1079,7 +1136,6 @@ for i, towerName in ipairs(towers) do
 		end)
 	end
 end
-CycleScrollFrame.CanvasSize = UDim2.new(0, 0, 0, # towers * 100)
 
 local BossConfigFrame = Instance.new("Frame")
 BossConfigFrame.Size = UDim2.new(0, 420, 0, 500)
@@ -1089,6 +1145,7 @@ BossConfigFrame.BorderSizePixel = 0
 BossConfigFrame.Visible = false
 BossConfigFrame.ZIndex = 100
 BossConfigFrame.Parent = ScreenGui
+applyStroke(BossConfigFrame, Color3.fromRGB(60, 60, 80), 1.2)
 local BossConfigCorner = Instance.new("UICorner")
 BossConfigCorner.CornerRadius = UDim.new(0, 10)
 BossConfigCorner.Parent = BossConfigFrame
@@ -1128,11 +1185,20 @@ BossConfigScrollFrame.BorderSizePixel = 0
 BossConfigScrollFrame.ScrollBarThickness = 6
 BossConfigScrollFrame.ZIndex = 101
 BossConfigScrollFrame.Parent = BossConfigFrame
+local BossConfigPadding = Instance.new("UIPadding")
+BossConfigPadding.PaddingLeft = UDim.new(0, 5)
+BossConfigPadding.PaddingRight = UDim.new(0, 5)
+BossConfigPadding.Parent = BossConfigScrollFrame
 
 local BossConfigListLayout = Instance.new("UIListLayout")
 BossConfigListLayout.Padding = UDim.new(0, 10)
 BossConfigListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 BossConfigListLayout.Parent = BossConfigScrollFrame
+local function updateBossConfigCanvas()
+        BossConfigScrollFrame.CanvasSize = UDim2.fromOffset(0, BossConfigListLayout.AbsoluteContentSize.Y)
+end
+BossConfigListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateBossConfigCanvas)
+task.defer(updateBossConfigCanvas)
 
 local function populateBossConfigUI()
 	for _, child in ipairs(BossConfigScrollFrame:GetChildren()) do
@@ -1238,7 +1304,7 @@ local function populateBossConfigUI()
 			end
 		end
 	end
-	BossConfigScrollFrame.CanvasSize = UDim2.new(0, 0, 0, BossConfigListLayout.AbsoluteContentSize.Y)
+        BossConfigScrollFrame.CanvasSize = UDim2.fromOffset(0, BossConfigListLayout.AbsoluteContentSize.Y)
 end
 
 local isMinimized = false
@@ -1475,7 +1541,7 @@ local function towerFarmLoop()
 				end)
 				if # floorsToRun > 0 then
 					TOWER_ID = towerName
-					StatusLabel.Text = "Status: Cycling to " .. towerName:gsub("_", " ")
+                                        StatusLabel.Text = "Status: Cycling to " .. formatTowerName(towerName)
 					wait(2)
 					for _, floorData in ipairs(floorsToRun) do
 						if not isRunning then
@@ -1485,7 +1551,7 @@ local function towerFarmLoop()
 						StatusLabel.Text = "Status: Switching to Team " .. floorData.teamSlot
 						setDefaultPartySlotEvent:FireServer("slot_" .. tostring(floorData.teamSlot))
 						wait(1.5)
-						FloorLabel.Text = "Current Floor: " .. currentFloor .. " (" .. TOWER_ID:gsub("_", " ") .. ")"
+                                                FloorLabel.Text = "Current Floor: " .. currentFloor .. " (" .. formatTowerName(TOWER_ID) .. ")"
 						battleAttempts = 0
 						currentBattleType = "tower"
 						animationTurnCount = 0
@@ -1659,14 +1725,21 @@ coroutine.wrap(function()
 end)()
 
 StartButton.MouseButton1Click:Connect(function()
-	if not isRunning then
-		TOWER_ID = TowerDropdown.Text
-		START_FLOOR = tonumber(StartFloorInput.Text) or 3
-		END_FLOOR = tonumber(EndFloorInput.Text) or 25
-		isRunning = true
-		StartButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-		coroutine.wrap(towerFarmLoop)()
-	end
+        if not isRunning then
+                local selectedTowerId = TowerDropdown:GetAttribute("SelectedTowerId") or TOWER_ID
+                if selectedTowerId then
+                        TOWER_ID = selectedTowerId
+                end
+                local parsedStart = tonumber(StartFloorInput.Text)
+                local parsedEnd = tonumber(EndFloorInput.Text)
+                START_FLOOR = math.clamp(math.floor(parsedStart or START_FLOOR), 1, 25)
+                END_FLOOR = math.clamp(math.floor(parsedEnd or END_FLOOR), START_FLOOR, 25)
+                StartFloorInput.Text = tostring(START_FLOOR)
+                EndFloorInput.Text = tostring(END_FLOOR)
+                isRunning = true
+                StartButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+                coroutine.wrap(towerFarmLoop)()
+        end
 end)
 StopButton.MouseButton1Click:Connect(function()
 	isRunning = false
@@ -1820,15 +1893,21 @@ battleEndEvent.OnClientEvent:Connect(function()
 end)
 
 RaidMinionToggle.MouseButton1Click:Connect(function()
-	isRaidFarmingEnabled = not isRaidFarmingEnabled
-	if isRaidFarmingEnabled then
-		RaidMinionToggle.Text = "RAID MINION: ON"
-		RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-	else
-		RaidMinionToggle.Text = "RAID MINION: OFF"
-		RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-		combatState = "IDLE"
-	end
+        if not isRaidFarmingEnabled and typeof(fireproximityprompt) ~= "function" then
+                warn("Raid Minion: fireproximityprompt unavailable; feature disabled.")
+                RaidMinionToggle.Text = "RAID MINION: OFF"
+                RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+                return
+        end
+        isRaidFarmingEnabled = not isRaidFarmingEnabled
+        if isRaidFarmingEnabled then
+                RaidMinionToggle.Text = "RAID MINION: ON"
+                RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        else
+                RaidMinionToggle.Text = "RAID MINION: OFF"
+                RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+                combatState = "IDLE"
+        end
 end)
 
 coroutine.wrap(function()
@@ -1841,15 +1920,25 @@ coroutine.wrap(function()
 					if prompt then
 						local originalDistance = prompt.MaxActivationDistance
 						prompt.MaxActivationDistance = RAID_CONFIG.PROXIMITY_RANGE_OVERRIDE
-						fireproximityprompt(prompt)
-						prompt.MaxActivationDistance = originalDistance
-						combatState = "PENDING"
-						pendingStartTime = os.clock()
-						break
-					end
-				end
-			end
-		elseif combatState == "PENDING" then
+                                                if typeof(fireproximityprompt) == "function" then
+                                                        fireproximityprompt(prompt)
+                                                        prompt.MaxActivationDistance = originalDistance
+                                                        combatState = "PENDING"
+                                                        pendingStartTime = os.clock()
+                                                        break
+                                                else
+                                                        warn("Raid Minion: fireproximityprompt became unavailable; disabling.")
+                                                        isRaidFarmingEnabled = false
+                                                        RaidMinionToggle.Text = "RAID MINION: OFF"
+                                                        RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+                                                        prompt.MaxActivationDistance = originalDistance
+                                                        combatState = "IDLE"
+                                                        break
+                                                end
+                                        end
+                                end
+                        end
+                elseif combatState == "PENDING" then
 			if os.clock() - pendingStartTime > RAID_CONFIG.PENDING_COMBAT_TIMEOUT then
 				combatState = "IDLE"
 			end
@@ -1858,21 +1947,29 @@ coroutine.wrap(function()
 end)()
 
 local function setupRewardBlocker()
-	local success, err = pcall(function()
-		local event = ReplicatedStorage:WaitForChild("shared/network@eventDefinitions", 20):WaitForChild("notifyRewards", 20)
-		for _, connection in pairs(getconnections(event.OnClientEvent)) do
-			local originalFunction = connection.Function
-			connection:Disable()
-			event.OnClientEvent:Connect(function(...)
-				if not isBlockingRewards then
-					originalFunction(...)
-				end
-			end)
-		end
-	end)
-	if not success then
-		warn("Reward Blocker: Failed to initialize. Error:", err)
-	else
+        if typeof(getconnections) ~= "function" then
+                warn("Reward Blocker: getconnections unavailable; skipping hook.")
+                return
+        end
+        local success, err = pcall(function()
+                local event = ReplicatedStorage:WaitForChild("shared/network@eventDefinitions", 20):WaitForChild("notifyRewards", 20)
+                for _, connection in pairs(getconnections(event.OnClientEvent)) do
+                        local originalFunction = connection.Function
+                        if originalFunction then
+                                if connection.Disable then
+                                        connection:Disable()
+                                end
+                                event.OnClientEvent:Connect(function(...)
+                                        if not isBlockingRewards then
+                                                originalFunction(...)
+                                        end
+                                end)
+                        end
+                end
+        end)
+        if not success then
+                warn("Reward Blocker: Failed to initialize. Error:", err)
+        else
 		print("Reward Blocker: Hooked successfully.")
 	end
 end
