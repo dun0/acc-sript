@@ -40,6 +40,8 @@ local animationTurnCount = 0
 local battleAttempts = 0
 local currentFloor = START_FLOOR
 local isBlockingRewards = false
+local currentBossId = nil
+local currentBossDiff = nil
 local function rollMoons() end
 
 local moons = {
@@ -1578,10 +1580,16 @@ local function monitorBattle()
 					StatusLabel.Text = "Status: Stalled! Retrying floor " .. currentFloor .. "..."
 					fightTowerEvent:FireServer(TOWER_ID, currentFloor)
 				elseif currentBattleType == "boss" then
-					isBattling = false
-					BossStatusLabel.Text = "Status: Battle stalled! Stopping..."
-					isBossFarming = false
-					BossStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+					BossStatusLabel.Text = "Status: Stalled! Retrying " .. (currentBossDiff or "boss") .. "..."
+					if currentBossId and currentBossDiff then
+						fightBossEvent:FireServer(currentBossId, currentBossDiff)
+					else
+						-- Fallback if data missing
+						isBattling = false
+						BossStatusLabel.Text = "Status: Battle stalled! Stopping (No ID)..."
+						isBossFarming = false
+						BossStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+					end
 				end
 			end
 		end
@@ -1680,6 +1688,8 @@ local function bossFarmLoop()
 							wait(1.5)
 							BossStatusLabel.Text = string.format("Fighting %s (%s)...", boss.name, diff)
 							currentBattleType = "boss"
+							currentBossId = id
+							currentBossDiff = diff
 							isBattling = true
 							animationTurnCount = 0
 							fightBossEvent:FireServer(id, diff)
