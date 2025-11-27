@@ -1476,7 +1476,10 @@ CloseBossConfigButton.MouseButton1Click:Connect(function()
 	saveBossConfig()
 end)
 
+local currentActiveTab = "Tower"
+
 local function setActiveTab(activeTab)
+	currentActiveTab = activeTab
 	local tabs = { Tower = TowerTabButton, Boss = BossTabButton, Moon = MoonTabButton }
 	local frames = { Tower = TowerFrame, Boss = BossFrame, Moon = MoonFrame }
 	for name, button in pairs(tabs) do
@@ -1500,9 +1503,9 @@ MinimizeButton.MouseButton1Click:Connect(function()
 	local targetSize = isMinimized and UDim2.new(0, 320, 0, 40) or UDim2.new(0, 320, 0, 480)
 	TabBar.Visible = not isMinimized
 	if not isMinimized then
-		TowerFrame.Visible = (TowerTabButton.BackgroundColor3 == Color3.fromRGB(45, 45, 55))
-		BossFrame.Visible  = (BossTabButton.BackgroundColor3 == Color3.fromRGB(45, 45, 55))
-		MoonFrame.Visible  = (MoonTabButton.BackgroundColor3 == Color3.fromRGB(45, 45, 55))
+		TowerFrame.Visible = (currentActiveTab == "Tower")
+		BossFrame.Visible  = (currentActiveTab == "Boss")
+		MoonFrame.Visible  = (currentActiveTab == "Moon")
 	else
 		TowerFrame.Visible, BossFrame.Visible, MoonFrame.Visible = false, false, false
 	end
