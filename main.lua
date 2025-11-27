@@ -75,7 +75,6 @@ local towerCycleConfig = {}
 local cycleTowersEnabled = false
 local floorOptions = { 5, 10, 15, 20, 25 }
 
--- === helpers for normalized (string-keyed) floor map ===
 local function floorKey(n) return tostring(n) end
 
 local function saveCycleConfig()
@@ -103,7 +102,6 @@ local function loadCycleConfig()
 		end
 	end
 
-	-- ensure schema + migrate any numeric/array keys to string-keyed floors
 	for _, towerName in ipairs(towers) do
 		local tcfg = towerCycleConfig[towerName]
 		if type(tcfg) ~= "table" then
@@ -118,7 +116,6 @@ local function loadCycleConfig()
 		if type(floors) == "table" then
 			local isArray = (#floors > 0)
 			if isArray then
-				-- old array-shaped data; map entry i -> floorOptions[i]
 				for i, fnum in ipairs(floorOptions) do
 					local src = floors[i]
 					if type(src) == "table" then
@@ -129,7 +126,6 @@ local function loadCycleConfig()
 					end
 				end
 			else
-				-- already a map; force string keys + defaults
 				for k, v in pairs(floors) do
 					local key = tostring(k)
 					local enabled = false
@@ -143,7 +139,6 @@ local function loadCycleConfig()
 			end
 		end
 
-		-- fill any missing floors
 		for _, fnum in ipairs(floorOptions) do
 			local key = floorKey(fnum)
 			if not newFloors[key] then
@@ -154,10 +149,8 @@ local function loadCycleConfig()
 		tcfg.floors = newFloors
 	end
 
-	-- persist normalized shape
 	saveCycleConfig()
 
-	-- === SANITY LOG ===
 	print("[CycleConfig] Normalized and loaded:")
 	for _, t in ipairs(towers) do
 		local f = towerCycleConfig[t] and towerCycleConfig[t].floors or {}
@@ -166,22 +159,24 @@ local function loadCycleConfig()
 	end
 end
 
--- boss stuff unchanged
 local isBossFarming = false
 local bossData = {
-	[307] = "Bijuu Beast",
-	[380] = "Awakened Galactic Tyrant",
-	[329] = "King of Curses",
-	[354] = "Combat Giant",
-	[456] = "Awakened Pale Demon Lord",
-	[347] = "Soul Queen",
-	[321] = "Awakened Shadow Monarch",
-	[299] = "Lord Of Eminence",
-	[365] = "Celestial Sovereign",
-	[342] = "Undead King"
+	[359] = "Bijuu Beast",
+	[355] = "Awakened Galactic Tyrant",
+	[392] = "King of Curses",
+	[327] = "Combat Giant",
+	[345] = "Awakened Pale Demon Lord",
+	[320] = "Soul Queen",
+	[478] = "Awakened Shadow Monarch",
+	[297] = "Lord Of Eminence",
+	[338] = "Celestial Sovereign",
+	[373] = "Undead King",
+	[383] = "Substitute Shinigami",
+	[313] = "Quincy King"
 }
-local bossOrder = { 307, 380, 329, 354, 456, 347, 321, 299, 365, 342 }
-local bossDifficulties = { "normal", "medium", "hard", "extreme" }
+
+local bossOrder = { 359, 355, 392, 327, 345, 320, 478, 297, 338, 373, 383, 313 }
+local bossDifficulties = { "normal", "medium", "hard", "extreme", "nightmare", "celestial" }
 local bossConfig = {}
 
 coroutine.wrap(function()
@@ -200,7 +195,6 @@ coroutine.wrap(function()
 	end
 end)()
 
--- load and seed towerCycleConfig using normalized keys
 loadCycleConfig()
 
 for _, towerName in ipairs(towers) do
@@ -263,7 +257,6 @@ local function loadBossConfig()
 	bossConfig = defaultConfig
 end
 
--- === UI (unchanged styling; only places that touched floors were updated to use string keys) ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LunarTowerFarm"
 ScreenGui.ResetOnSpawn = false
@@ -294,6 +287,8 @@ local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 10)
 TitleCorner.Parent = Title
 
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+
 local MinimizeButton = Instance.new("TextButton")
 MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
 MinimizeButton.Position = UDim2.new(1, -35, 0, 5)
@@ -309,44 +304,48 @@ MinimizeCorner.CornerRadius = UDim.new(0, 6)
 MinimizeCorner.Parent = MinimizeButton
 
 local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, 0, 0, 35)
-TabBar.Position = UDim2.new(0, 0, 0, 40)
+TabBar.Size = UDim2.new(1, -20, 0, 35)
+TabBar.Position = UDim2.new(0, 10, 0, 45)
 TabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+TabBar.BackgroundTransparency = 1
 TabBar.Parent = MainFrame
 
-local TowerTabButton = Instance.new("TextButton")
-TowerTabButton.Size = UDim2.new(0.33, -2, 1, 0)
-TowerTabButton.Position = UDim2.new(0, 0, 0, 0)
-TowerTabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-TowerTabButton.Text = "Tower Farm"
-TowerTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-TowerTabButton.TextSize = 14
-TowerTabButton.Font = Enum.Font.GothamBold
-TowerTabButton.Parent = TabBar
+local function createTabButton(name, text, order)
+	local btn = Instance.new("TextButton")
+	btn.Name = name
+	btn.Size = UDim2.new(0.32, 0, 1, 0)
+	local xPos = (order - 1) * 0.34
+	btn.Position = UDim2.new(xPos, 0, 0, 0)
+	btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	btn.TextSize = 13
+	btn.Font = Enum.Font.GothamMedium
+	btn.BorderSizePixel = 0
+	btn.Parent = TabBar
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = btn
+	
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 190))
+	}
+	gradient.Parent = btn
+	
+	return btn
+end
 
-local BossTabButton = Instance.new("TextButton")
-BossTabButton.Size = UDim2.new(0.34, -2, 1, 0)
-BossTabButton.Position = UDim2.new(0.33, 2, 0, 0)
-BossTabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-BossTabButton.Text = "Boss Farm"
-BossTabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-BossTabButton.TextSize = 14
-BossTabButton.Font = Enum.Font.Gotham
-BossTabButton.Parent = TabBar
-
-local MoonTabButton = Instance.new("TextButton")
-MoonTabButton.Size = UDim2.new(0.33, -2, 1, 0)
-MoonTabButton.Position = UDim2.new(0.67, 2, 0, 0)
-MoonTabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-MoonTabButton.Text = "Moon Roller"
-MoonTabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-MoonTabButton.TextSize = 14
-MoonTabButton.Font = Enum.Font.Gotham
-MoonTabButton.Parent = TabBar
+local TowerTabButton = createTabButton("Tower", "Tower Farm", 1)
+local BossTabButton = createTabButton("Boss", "Boss Farm", 2)
+local MoonTabButton = createTabButton("Moon", "Moon Roller", 3)
 
 local BaseFrame = Instance.new("Frame")
-BaseFrame.Size = UDim2.new(1, 0, 1, -75)
-BaseFrame.Position = UDim2.new(0, 0, 0, 75)
+BaseFrame.Size = UDim2.new(1, 0, 1, -90) 
+BaseFrame.Position = UDim2.new(0, 0, 0, 90)
 BaseFrame.BackgroundTransparency = 1
 BaseFrame.Parent = MainFrame
 
@@ -567,7 +566,7 @@ AttemptsLabel.Parent = TowerFrame
 
 local AntiAfkLabel = Instance.new("TextLabel")
 AntiAfkLabel.Size = UDim2.new(1, -80, 0, 20)
-AntiAfkLabel.Position = UDim2.new(0, 10, 0, 270)
+AntiAfkLabel.Position = UDim2.new(0, 10, 0, 265) 
 AntiAfkLabel.BackgroundTransparency = 1
 AntiAfkLabel.Text = "Anti-AFK: Disabled"
 AntiAfkLabel.TextColor3 = Color3.fromRGB(200, 100, 100)
@@ -578,7 +577,7 @@ AntiAfkLabel.Parent = TowerFrame
 
 local AntiAfkToggle = Instance.new("TextButton")
 AntiAfkToggle.Size = UDim2.new(0, 60, 0, 20)
-AntiAfkToggle.Position = UDim2.new(1, -70, 0, 270)
+AntiAfkToggle.Position = UDim2.new(1, -70, 0, 265)
 AntiAfkToggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 AntiAfkToggle.Text = "OFF"
 AntiAfkToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -593,7 +592,7 @@ AntiAfkToggleCorner.Parent = AntiAfkToggle
 
 local CycleTowerLabel = Instance.new("TextLabel")
 CycleTowerLabel.Size = UDim2.new(1, -80, 0, 20)
-CycleTowerLabel.Position = UDim2.new(0, 10, 0, 300)
+CycleTowerLabel.Position = UDim2.new(0, 10, 0, 290)
 CycleTowerLabel.BackgroundTransparency = 1
 CycleTowerLabel.Text = "Cycle Towers"
 CycleTowerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -604,7 +603,7 @@ CycleTowerLabel.Parent = TowerFrame
 
 local CycleTowerToggle = Instance.new("TextButton")
 CycleTowerToggle.Size = UDim2.new(0, 60, 0, 20)
-CycleTowerToggle.Position = UDim2.new(1, -70, 0, 300)
+CycleTowerToggle.Position = UDim2.new(1, -70, 0, 290) 
 CycleTowerToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 CycleTowerToggle.Text = "OFF"
 CycleTowerToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -619,7 +618,7 @@ CycleTowerToggleCorner.Parent = CycleTowerToggle
 
 local ConfigCycleButton = Instance.new("TextButton")
 ConfigCycleButton.Size = UDim2.new(1, -20, 0, 25)
-ConfigCycleButton.Position = UDim2.new(0, 10, 0, 330)
+ConfigCycleButton.Position = UDim2.new(0, 10, 0, 315) 
 ConfigCycleButton.BackgroundColor3 = Color3.fromRGB(50, 100, 150)
 ConfigCycleButton.Text = "Configure Tower Cycle"
 ConfigCycleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1255,63 +1254,85 @@ local function populateBossConfigUI()
 			child:Destroy()
 		end
 	end
+	
 	for index, id in ipairs(bossOrder) do
 		local boss = bossConfig[tostring(id)]
 		if boss then
 			local BFrame = Instance.new("Frame")
 			BFrame.Name = boss.name
-			BFrame.Size = UDim2.new(1, 0, 0, 130)
+
+			BFrame.Size = UDim2.new(1, 0, 0, 140) 
 			BFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 			BFrame.LayoutOrder = index
 			BFrame.ZIndex = 102
 			BFrame.Parent = BossConfigScrollFrame
 
 			local BFrameCorner = Instance.new("UICorner")
-			BFrameCorner.CornerRadius = UDim.new(0, 6)
+			BFrameCorner.CornerRadius = UDim.new(0, 8)
 			BFrameCorner.Parent = BFrame
+			
+			local BStroke = Instance.new("UIStroke")
+			BStroke.Color = Color3.fromRGB(60, 60, 70)
+			BStroke.Thickness = 1
+			BStroke.Parent = BFrame
 
 			local BName = Instance.new("TextLabel")
-			BName.Size = UDim2.new(1, -20, 0, 22)
-			BName.Position = UDim2.new(0, 10, 0, 8)
+			BName.Size = UDim2.new(1, -20, 0, 25)
+			BName.Position = UDim2.new(0, 10, 0, 5)
 			BName.BackgroundTransparency = 1
 			BName.Text = boss.name:upper()
 			BName.TextColor3 = Color3.fromRGB(255, 255, 255)
 			BName.Font = Enum.Font.GothamBold
-			BName.TextSize = 13
+			BName.TextSize = 14
 			BName.TextXAlignment = Enum.TextXAlignment.Left
 			BName.ZIndex = 103
 			BName.Parent = BFrame
 
-			for i, diff in ipairs(bossDifficulties) do
+
+			local GridContainer = Instance.new("Frame")
+			GridContainer.Size = UDim2.new(1, -20, 1, -35)
+			GridContainer.Position = UDim2.new(0, 10, 0, 30)
+			GridContainer.BackgroundTransparency = 1
+			GridContainer.ZIndex = 103
+			GridContainer.Parent = BFrame
+
+			local UIGrid = Instance.new("UIGridLayout")
+			UIGrid.CellSize = UDim2.new(0.5, -5, 0, 30) 
+			UIGrid.CellPadding = UDim2.new(0, 10, 0, 5)
+			UIGrid.SortOrder = Enum.SortOrder.LayoutOrder
+			UIGrid.Parent = GridContainer
+
+			local displayOrder = {"normal", "extreme", "medium", "nightmare", "hard", "celestial"}
+
+			for i, diff in ipairs(displayOrder) do
 				local diffConfig = boss.difficulties[diff]
 
 				local DFrame = Instance.new("Frame")
-				DFrame.Size = UDim2.new(1, -20, 0, 22)
-				DFrame.Position = UDim2.new(0, 10, 0, 32 + ((i - 1) * 24))
 				DFrame.BackgroundTransparency = 1
 				DFrame.ZIndex = 103
-				DFrame.Parent = BFrame
+				DFrame.LayoutOrder = i
+				DFrame.Parent = GridContainer
 
 				local DLabel = Instance.new("TextLabel")
-				DLabel.Size = UDim2.new(0, 70, 1, 0)
+				DLabel.Size = UDim2.new(0, 60, 1, 0)
 				DLabel.Position = UDim2.new(0, 0, 0, 0)
 				DLabel.BackgroundTransparency = 1
-				DLabel.Text = diff:sub(1,1):upper()..diff:sub(2)..":"
+				DLabel.Text = diff:sub(1,1):upper()..diff:sub(2)
 				DLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 				DLabel.Font = Enum.Font.Gotham
-				DLabel.TextSize = 12
+				DLabel.TextSize = 11
 				DLabel.TextXAlignment = Enum.TextXAlignment.Left
 				DLabel.ZIndex = 104
 				DLabel.Parent = DFrame
 
 				local DToggle = Instance.new("TextButton")
-				DToggle.Size = UDim2.new(0, 50, 0, 20)
-				DToggle.Position = UDim2.new(0, 80, 0, 1)
+				DToggle.Size = UDim2.new(0, 30, 0, 20)
+				DToggle.Position = UDim2.new(0, 60, 0.5, -10)
 				DToggle.Text = diffConfig.enabled and "ON" or "OFF"
 				DToggle.BackgroundColor3 = diffConfig.enabled and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(80, 80, 90)
 				DToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 				DToggle.Font = Enum.Font.GothamBold
-				DToggle.TextSize = 11
+				DToggle.TextSize = 10
 				DToggle.ZIndex = 104
 				DToggle.Parent = DFrame
 
@@ -1326,33 +1347,34 @@ local function populateBossConfigUI()
 					saveBossConfig()
 				end)
 
-				local TeamLabel = Instance.new("TextLabel")
-				TeamLabel.Size = UDim2.new(0, 70, 1, 0)
-				TeamLabel.Position = UDim2.new(0, 180, 0, 0)
-				TeamLabel.BackgroundTransparency = 1
-				TeamLabel.Text = "Team Slot:"
-				TeamLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-				TeamLabel.Font = Enum.Font.Gotham
-				TeamLabel.TextSize = 12
-				TeamLabel.TextXAlignment = Enum.TextXAlignment.Left
-				TeamLabel.ZIndex = 104
-				TeamLabel.Parent = DFrame
-
 				local TeamInput = Instance.new("TextBox")
-				TeamInput.Size = UDim2.new(0, 40, 0, 20)
-				TeamInput.Position = UDim2.new(0, 260, 0, 1)
+				TeamInput.Size = UDim2.new(0, 30, 0, 20)
+				TeamInput.Position = UDim2.new(1, -30, 0.5, -10)
 				TeamInput.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 				TeamInput.Text = tostring(diffConfig.teamSlot)
 				TeamInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 				TeamInput.Font = Enum.Font.Gotham
-				TeamInput.TextSize = 12
+				TeamInput.TextSize = 11
+				TeamInput.PlaceholderText = "#"
 				TeamInput.ClearTextOnFocus = false
 				TeamInput.ZIndex = 104
 				TeamInput.Parent = DFrame
-
+				
 				local TeamInputCorner = Instance.new("UICorner")
 				TeamInputCorner.CornerRadius = UDim.new(0, 4)
 				TeamInputCorner.Parent = TeamInput
+				
+				local TeamLabel = Instance.new("TextLabel")
+				TeamLabel.Size = UDim2.new(0, 30, 1, 0)
+				TeamLabel.Position = UDim2.new(1, -65, 0, 0)
+				TeamLabel.BackgroundTransparency = 1
+				TeamLabel.Text = "Slot:"
+				TeamLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+				TeamLabel.Font = Enum.Font.Gotham
+				TeamLabel.TextSize = 10
+				TeamLabel.TextXAlignment = Enum.TextXAlignment.Right
+				TeamLabel.ZIndex = 104
+				TeamLabel.Parent = DFrame
 
 				TeamInput.FocusLost:Connect(function(enterPressed)
 					local num = tonumber(TeamInput.Text)
@@ -1365,7 +1387,7 @@ local function populateBossConfigUI()
 			end
 		end
 	end
-	BossConfigScrollFrame.CanvasSize = UDim2.new(0, 0, 0, BossConfigListLayout.AbsoluteContentSize.Y)
+	BossConfigScrollFrame.CanvasSize = UDim2.new(0, 0, 0, BossConfigListLayout.AbsoluteContentSize.Y + 20)
 end
 
 local isMinimized = false
@@ -1459,9 +1481,12 @@ local function setActiveTab(activeTab)
 	local frames = { Tower = TowerFrame, Boss = BossFrame, Moon = MoonFrame }
 	for name, button in pairs(tabs) do
 		local isActive = (name == activeTab)
-		button.BackgroundColor3 = isActive and Color3.fromRGB(45, 45, 55) or Color3.fromRGB(35, 35, 45)
-		button.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(200, 200, 200)
-		button.Font = isActive and Enum.Font.GothamBold or Enum.Font.Gotham
+		button.BackgroundColor3 = isActive and Color3.fromRGB(50, 50, 60) or Color3.fromRGB(35, 35, 45)
+		button.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+		button.Font = isActive and Enum.Font.GothamBold or Enum.Font.GothamMedium
+		
+		button:TweenSize(UDim2.new(0.32, 0, 1, isActive and 2 or 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+		
 		frames[name].Visible = isActive
 	end
 end
