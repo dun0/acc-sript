@@ -14,6 +14,7 @@ if not isfolder("Roblox/boss-retry") then
 	makefolder("Roblox/boss-retry")
 end
 local CONFIG_FILE_PATH = "Roblox/boss-retry/boss_config.json"
+local MASTER_CFG_PATH = "Roblox/boss-retry/boss_master_config.json"
 local CYCLE_CFG_PATH = "Roblox/boss-retry/acc_cycle_config.json"
 
 local STALL_CHECK_INTERVAL = 5
@@ -42,6 +43,7 @@ local currentFloor = START_FLOOR
 local isBlockingRewards = false
 local currentBossId = nil
 local currentBossDiff = nil
+local currentTeamSlot = nil
 local function rollMoons() end
 
 local moons = {
@@ -180,6 +182,7 @@ local bossData = {
 local bossOrder = { 359, 355, 392, 327, 345, 320, 478, 297, 338, 373, 383, 313 }
 local bossDifficulties = { "normal", "medium", "hard", "extreme", "nightmare", "celestial" }
 local bossConfig = {}
+local bossMasterConfig = {}
 
 coroutine.wrap(function()
 	local keys = { Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D }
@@ -257,6 +260,25 @@ local function loadBossConfig()
 		end
 	end
 	bossConfig = defaultConfig
+end
+
+local function saveMasterConfig()
+	local success, encoded = pcall(HttpService.JSONEncode, HttpService, bossMasterConfig)
+	if success then writefile(MASTER_CFG_PATH, encoded) end
+end
+
+local function loadMasterConfig()
+	if isfile(MASTER_CFG_PATH) then
+		local success, data = pcall(readfile, MASTER_CFG_PATH)
+		if success then
+			local ok, decoded = pcall(HttpService.JSONDecode, HttpService, data)
+			if ok and type(decoded) == "table" then bossMasterConfig = decoded end
+		end
+	end
+	for _, id in ipairs(bossOrder) do
+		local sid = tostring(id)
+		if bossMasterConfig[sid] == nil then bossMasterConfig[sid] = true end
+	end
 end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -1290,6 +1312,39 @@ local function populateBossConfigUI()
 			BName.ZIndex = 103
 			BName.Parent = BFrame
 
+			local MasterToggle = Instance.new("TextButton")
+			MasterToggle.Size = UDim2.new(0.3, 0, 0, 20)
+			MasterToggle.Position = UDim2.new(0.7, -10, 0, 7.5)
+			MasterToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+			local isMasterEnabled = bossMasterConfig[tostring(id)]
+			if isMasterEnabled == nil then isMasterEnabled = true end
+			MasterToggle.Text = isMasterEnabled and "ENABLED" or "DISABLED"
+			if isMasterEnabled then
+				MasterToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+			else
+				MasterToggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+			end
+			MasterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+			MasterToggle.TextSize = 10
+			MasterToggle.Font = Enum.Font.GothamBold
+			MasterToggle.ZIndex = 103
+			MasterToggle.Parent = BFrame
+
+			local MasterToggleCorner = Instance.new("UICorner")
+			MasterToggleCorner.CornerRadius = UDim.new(0, 4)
+			MasterToggleCorner.Parent = MasterToggle
+
+			MasterToggle.MouseButton1Click:Connect(function()
+				local newState = not bossMasterConfig[tostring(id)]
+				bossMasterConfig[tostring(id)] = newState
+				MasterToggle.Text = newState and "ENABLED" or "DISABLED"
+				if newState then
+					MasterToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+				else
+					MasterToggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+				end
+				saveMasterConfig()
+			end)
 
 			local GridContainer = Instance.new("Frame")
 			GridContainer.Size = UDim2.new(1, -20, 1, -35)
@@ -1615,10 +1670,15 @@ local function towerFarmLoop()
 					wait(2)
 					for _, floorData in ipairs(floorsToRun) do
 						if not isRunning then break end
+						if not isRunning then break end
 						currentFloor = floorData.floor
-						StatusLabel.Text = "Status: Switching to Team " .. floorData.teamSlot
-						setDefaultPartySlotEvent:FireServer("slot_" .. tostring(floorData.teamSlot))
-						wait(1.5)
+						local targetSlot = floorData.teamSlot
+						if currentTeamSlot ~= targetSlot then
+							StatusLabel.Text = "Status: Switching to Team " .. targetSlot
+							setDefaultPartySlotEvent:FireServer("slot_" .. tostring(targetSlot))
+							currentTeamSlot = targetSlot
+							wait(1.5)
+						end
 						FloorLabel.Text = "Current Floor: " .. currentFloor .. " (" .. TOWER_ID:gsub("_", " ") .. ")"
 						battleAttempts = 0
 						currentBattleType = "tower"
@@ -1677,15 +1737,19 @@ local function bossFarmLoop()
 		for _, id in ipairs(bossOrder) do
 			if not isBossFarming then break end
 			local boss = bossConfig[tostring(id)]
-			if boss then
+			if boss and bossMasterConfig[tostring(id)] then
 				for _, diff in ipairs(bossDifficulties) do
 					if not isBossFarming then break end
 					local diffConfig = boss.difficulties[diff]
 					if diffConfig.enabled then
 						if os.time() >= diffConfig.cooldownEnd then
-							BossStatusLabel.Text = string.format("Switching to Team %d...", diffConfig.teamSlot)
-							setDefaultPartySlotEvent:FireServer("slot_" .. tostring(diffConfig.teamSlot))
-							wait(1.5)
+							local targetSlot = diffConfig.teamSlot
+							if currentTeamSlot ~= targetSlot then
+								BossStatusLabel.Text = string.format("Switching to Team %d...", targetSlot)
+								setDefaultPartySlotEvent:FireServer("slot_" .. tostring(targetSlot))
+								currentTeamSlot = targetSlot
+								wait(1.5)
+							end
 							BossStatusLabel.Text = string.format("Fighting %s (%s)...", boss.name, diff)
 							currentBattleType = "boss"
 							currentBossId = id
@@ -1997,6 +2061,7 @@ local function setupRewardBlocker()
 end
 
 loadBossConfig()
+loadMasterConfig()
 populateBossConfigUI()
 setActiveTab("Tower")
 setupRewardBlocker()
