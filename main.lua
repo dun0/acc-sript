@@ -896,8 +896,8 @@ MoonDropdown.MouseButton1Click:Connect(function()
 end)
 
 local MoonStatusLabel = Instance.new("TextLabel")
-MoonStatusLabel.Size = UDim2.new(1, -20, 0, 30)
-MoonStatusLabel.Position = UDim2.new(0, 10, 0, 145)
+MoonStatusLabel.Size = UDim2.new(1, -20, 0, 25)
+MoonStatusLabel.Position = UDim2.new(0, 10, 0, 140)
 MoonStatusLabel.BackgroundTransparency = 1
 MoonStatusLabel.Text = "Status: Idle"
 MoonStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -907,8 +907,8 @@ MoonStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 MoonStatusLabel.Parent = MoonFrame
 
 local RollCountLabel = Instance.new("TextLabel")
-RollCountLabel.Size = UDim2.new(1, -20, 0, 30)
-RollCountLabel.Position = UDim2.new(0, 10, 0, 180)
+RollCountLabel.Size = UDim2.new(1, -20, 0, 25)
+RollCountLabel.Position = UDim2.new(0, 10, 0, 170)
 RollCountLabel.BackgroundTransparency = 1
 RollCountLabel.Text = "Rolls Used: 0"
 RollCountLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -919,7 +919,7 @@ RollCountLabel.Parent = MoonFrame
 
 local LoopToggle = Instance.new("TextButton")
 LoopToggle.Size = UDim2.new(1, -20, 0, 30)
-LoopToggle.Position = UDim2.new(0, 10, 0, 220)
+LoopToggle.Position = UDim2.new(0, 10, 0, 200)
 LoopToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 LoopToggle.Text = "Loop: OFF"
 LoopToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -934,7 +934,7 @@ LoopToggleCorner.Parent = LoopToggle
 
 local RaidMinionToggle = Instance.new("TextButton")
 RaidMinionToggle.Size = UDim2.new(1, -20, 0, 30)
-RaidMinionToggle.Position = UDim2.new(0, 10, 0, 260)
+RaidMinionToggle.Position = UDim2.new(0, 10, 0, 235)
 RaidMinionToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 RaidMinionToggle.Text = "RAID MINION: OFF"
 RaidMinionToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -949,7 +949,7 @@ RaidMinionToggleCorner.Parent = RaidMinionToggle
 
 local BlockRewardsToggle = Instance.new("TextButton")
 BlockRewardsToggle.Size = UDim2.new(1, -20, 0, 30)
-BlockRewardsToggle.Position = UDim2.new(0, 10, 0, 300)
+BlockRewardsToggle.Position = UDim2.new(0, 10, 0, 270)
 BlockRewardsToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 BlockRewardsToggle.Text = "BLOCK REWARDS: OFF"
 BlockRewardsToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -961,6 +961,21 @@ BlockRewardsToggle.Parent = MoonFrame
 local BlockRewardsToggleCorner = Instance.new("UICorner")
 BlockRewardsToggleCorner.CornerRadius = UDim.new(0, 6)
 BlockRewardsToggleCorner.Parent = BlockRewardsToggle
+
+local FullCycleToggle = Instance.new("TextButton")
+FullCycleToggle.Size = UDim2.new(1, -20, 0, 30)
+FullCycleToggle.Position = UDim2.new(0, 10, 0, 305)
+FullCycleToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+FullCycleToggle.Text = "FULL CYCLE: OFF"
+FullCycleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+FullCycleToggle.TextSize = 14
+FullCycleToggle.Font = Enum.Font.GothamBold
+FullCycleToggle.BorderSizePixel = 0
+FullCycleToggle.Parent = MoonFrame
+
+local FullCycleToggleCorner = Instance.new("UICorner")
+FullCycleToggleCorner.CornerRadius = UDim.new(0, 6)
+FullCycleToggleCorner.Parent = FullCycleToggle
 
 local MoonStartButton = Instance.new("TextButton")
 MoonStartButton.Size = UDim2.new(0.5, -15, 0, 35)
@@ -2065,3 +2080,50 @@ loadMasterConfig()
 populateBossConfigUI()
 setActiveTab("Tower")
 setupRewardBlocker()
+
+local isFullCycleMode = false
+FullCycleToggle.MouseButton1Click:Connect(function()
+	isFullCycleMode = not isFullCycleMode
+	if isFullCycleMode then
+		FullCycleToggle.Text = "FULL CYCLE: ON"
+		FullCycleToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+		coroutine.wrap(function()
+			if not isRunning then
+				cycleTowersEnabled = true
+				CycleTowerToggle.Text = "ON"
+				CycleTowerToggle.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+				CycleTowerLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
+				
+				isRunning = true
+				StartButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+				towerFarmLoop()
+			end
+			
+			if isFullCycleMode then
+				wait(1)
+				if not isBossFarming then
+					isBossFarming = true
+					BossStatusLabel.Text = "Status: Starting boss farm (Full Cycle)..."
+					BossStartButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+					bossFarmLoop()
+				end
+			end
+			
+			if isFullCycleMode then
+				FullCycleToggle.Text = "FULL CYCLE: OFF"
+				FullCycleToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+				isFullCycleMode = false
+			end
+		end)()
+	else
+		FullCycleToggle.Text = "FULL CYCLE: OFF"
+		FullCycleToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+		isRunning = false
+		isBossFarming = false
+		isBattling = false
+		StatusLabel.Text = "Status: Full Cycle Stopped"
+		BossStatusLabel.Text = "Status: Full Cycle Stopped"
+		StartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+		BossStartButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+	end
+end)
