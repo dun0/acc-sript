@@ -233,6 +233,21 @@ local function saveBossConfig()
 end
 
 local function loadBossConfig()
+	local idMigration = {
+		["359"] = "355",
+		["355"] = "351",
+		["392"] = "388",
+		["327"] = "323",
+		["345"] = "341",
+		["320"] = "316",
+		["478"] = "460",
+		["297"] = "293",
+		["338"] = "334",
+		["373"] = "369",
+		["383"] = "379",
+		["313"] = "309"
+	}
+	
 	local defaultConfig = {}
 	for id, name in pairs(bossData) do
 		defaultConfig[tostring(id)] = { name = name, difficulties = {} }
@@ -246,15 +261,26 @@ local function loadBossConfig()
 			local decodedSuccess, loadedConfig = pcall(HttpService.JSONDecode, HttpService, data)
 			if decodedSuccess then
 				for id, bossInfo in pairs(defaultConfig) do
-					if loadedConfig[id] then
+					local oldId = nil
+					for old, new in pairs(idMigration) do
+						if new == id then
+							oldId = old
+							break
+						end
+					end
+					
+					-- Try to load from new ID first, then fall back to old ID
+					local sourceData = loadedConfig[id] or (oldId and loadedConfig[oldId])
+					if sourceData then
 						for diff, _ in pairs(bossInfo.difficulties) do
-							if loadedConfig[id].difficulties and loadedConfig[id].difficulties[diff] then
-								defaultConfig[id].difficulties[diff] = loadedConfig[id].difficulties[diff]
+							if sourceData.difficulties and sourceData.difficulties[diff] then
+								defaultConfig[id].difficulties[diff] = sourceData.difficulties[diff]
 							end
 						end
 					end
 				end
 				bossConfig = defaultConfig
+				saveBossConfig()
 				return
 			end
 		end
@@ -268,17 +294,38 @@ local function saveMasterConfig()
 end
 
 local function loadMasterConfig()
+	local idMigration = {
+		["359"] = "355",
+		["355"] = "351",
+		["392"] = "388",
+		["327"] = "323",
+		["345"] = "341",
+		["320"] = "316",
+		["478"] = "460",
+		["297"] = "293",
+		["338"] = "334",
+		["373"] = "369",
+		["383"] = "379",
+		["313"] = "309"
+	}
+	
 	if isfile(MASTER_CFG_PATH) then
 		local success, data = pcall(readfile, MASTER_CFG_PATH)
 		if success then
 			local ok, decoded = pcall(HttpService.JSONDecode, HttpService, data)
-			if ok and type(decoded) == "table" then bossMasterConfig = decoded end
+			if ok and type(decoded) == "table" then
+				for oldId, value in pairs(decoded) do
+					local newId = idMigration[oldId] or oldId
+					bossMasterConfig[newId] = value
+				end
+			end
 		end
 	end
 	for _, id in ipairs(bossOrder) do
 		local sid = tostring(id)
 		if bossMasterConfig[sid] == nil then bossMasterConfig[sid] = true end
 	end
+	saveMasterConfig()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
