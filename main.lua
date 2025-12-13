@@ -165,21 +165,21 @@ end
 
 local isBossFarming = false
 local bossData = {
-	[359] = "Bijuu Beast",
-	[355] = "Awakened Galactic Tyrant",
-	[392] = "King of Curses",
-	[327] = "Combat Giant",
-	[345] = "Awakened Pale Demon Lord",
-	[320] = "Soul Queen",
-	[478] = "Awakened Shadow Monarch",
-	[297] = "Lord Of Eminence",
-	[338] = "Celestial Sovereign",
-	[373] = "Undead King",
-	[383] = "Substitute Shinigami",
-	[313] = "Quincy King"
+	[355] = "Bijuu Beast",
+	[351] = "Awakened Galactic Tyrant",
+	[388] = "King of Curses",
+	[323] = "Combat Giant",
+	[341] = "Awakened Pale Demon Lord",
+	[316] = "Soul Queen",
+	[460] = "Awakened Shadow Monarch",
+	[293] = "Lord Of Eminence",
+	[334] = "Celestial Sovereign",
+	[369] = "Undead King",
+	[379] = "Substitute Shinigami",
+	[309] = "Quincy King"
 }
 
-local bossOrder = { 359, 355, 392, 327, 345, 320, 478, 297, 338, 373, 383, 313 }
+local bossOrder = { 355, 351, 388, 323, 341, 316, 460, 293, 334, 369, 379, 309 }
 local bossDifficulties = { "normal", "medium", "hard", "extreme", "nightmare", "celestial" }
 local bossConfig = {}
 local bossMasterConfig = {}
